@@ -1,0 +1,1 @@
+[{"stepTitle":"卸载数据","items":[{"type":"radio","field":"wizard_keep_data","label":"私有配置与会话","initValue":"true","options":[{"label":"保留为加密备份（使用当前 Web 密码解密）","value":"true"},{"label":"删除私有数据","value":"false"}]},{"type":"tips","helpText":"OpenCode/projects 项目不会被删除。加密备份会保存在项目共享目录，重装后可用恢复脚本还原。请妥善保管当前 Web 密码。"}]}]

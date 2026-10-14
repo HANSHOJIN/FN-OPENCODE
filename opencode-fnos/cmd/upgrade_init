@@ -1,0 +1,10 @@
+#!/bin/bash
+source "$TRIM_APPDEST/lib/common.sh"
+prepare
+bash "$(dirname "$0")/main" stop
+backup="$TRIM_PKGVAR/backups/$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$backup"
+tar -czf "$backup/etc.tar.gz" -C "$TRIM_PKGETC" .
+tar -czf "$backup/data.tar.gz" -C "$TRIM_PKGVAR" data state
+tar -czf "$backup/home.tar.gz" -C "$TRIM_PKGHOME" .
+printf '%s\n' "${TRIM_OLD_APPVER:-unknown}" > "$backup/previous-version"

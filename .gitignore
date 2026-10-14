@@ -1,0 +1,9 @@
+downloads/
+tools/
+dist/
+.build/
+opencode-fnos/app/bin/opencode
+*.fpk
+__pycache__/
+*.pyc
+

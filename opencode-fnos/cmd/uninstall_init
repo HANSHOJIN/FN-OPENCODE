@@ -1,0 +1,20 @@
+#!/bin/bash
+source "$TRIM_APPDEST/lib/common.sh"
+prepare
+bash "$(dirname "$0")/main" stop
+if [[ ${wizard_keep_data:-true} == true ]]; then
+ load_settings
+ command -v openssl >/dev/null || fail '缺少 openssl，无法保存加密备份；卸载已停止。'
+ backup="$workspace/OpenCode-private-$(date +%Y%m%d-%H%M%S).tar.enc"
+ temp="$TRIM_PKGVAR/run/uninstall-backup"
+ mkdir -p "$temp"
+ trap 'rm -f "$temp/etc.tar.gz" "$temp/data.tar.gz" "$temp/home.tar.gz"; rmdir "$temp" 2>/dev/null || true' EXIT
+ tar -czf "$temp/etc.tar.gz" -C "$TRIM_PKGETC" .
+ tar -czf "$temp/data.tar.gz" -C "$TRIM_PKGVAR" data state
+ tar -czf "$temp/home.tar.gz" -C "$TRIM_PKGHOME" .
+ tar -cf - -C "$temp" etc.tar.gz data.tar.gz home.tar.gz | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 -pass env:OPENCODE_SERVER_PASSWORD -out "$backup.new"
+ mv "$backup.new" "$backup"
+elif [[ ${wizard_keep_data:-} != false ]]; then
+ fail '卸载选项无效。'
+fi
+# fnOS owns removal of application-private directories. Never remove shared projects.

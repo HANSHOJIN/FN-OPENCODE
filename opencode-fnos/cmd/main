@@ -1,0 +1,54 @@
+#!/bin/bash
+source "$TRIM_APPDEST/lib/common.sh"
+prepare
+pidfile="$TRIM_PKGVAR/run/server.pid"
+exec 9>"$TRIM_PKGVAR/run/lifecycle.lock"
+flock -x 9
+alive() {
+ [[ -r $pidfile ]] || return 1
+ read -r pid birth < "$pidfile"
+ [[ $pid =~ ^[0-9]+$ && $pid -gt 1 && $birth =~ ^[0-9]+$ ]] || return 1
+ [[ -r /proc/$pid/stat ]] || return 1
+ [[ $(readlink -f "/proc/$pid/exe") == "$(readlink -f "$TRIM_APPDEST/bin/opencode")" ]] || return 1
+ local statline rest
+ statline=$(cat "/proc/$pid/stat"); rest=${statline##*) }
+ [[ $(awk '{print $20}' <<< "$rest") == "$birth" ]] && kill -0 "$pid" 2>/dev/null
+}
+stop_server() {
+ if alive; then
+  kill -TERM -- "-$pid" 2>/dev/null || true
+  for ((i=0;i<15;i++)); do alive || break; sleep 1; done
+  if alive; then kill -KILL -- "-$pid" 2>/dev/null || true; fi
+ fi
+ rm -f "$pidfile"
+}
+case ${1:-} in
+ start)
+  if alive; then load_settings; health || fail '进程存在但健康检查失败，请停止后重试。'; exit 0; fi
+  load_settings
+  [[ -x "$TRIM_APPDEST/bin/opencode" ]] || fail 'OpenCode binary 缺失或不可执行。'
+  for tool in curl setsid flock; do command -v "$tool" >/dev/null || fail "缺少运行工具：$tool"; done
+  if command -v ss >/dev/null && ss -H -ltn "sport = :$service_port" | grep -q .; then fail '服务端口已被占用，请修改应用设置。'; fi
+  setsid bash "$TRIM_APPDEST/lib/run.sh" 9>&- </dev/null >> "$TRIM_PKGVAR/log/launcher.log" 2>&1 &
+  pid=$!
+  for ((i=0;i<10;i++)); do
+   [[ -r /proc/$pid/stat ]] || break
+   [[ $(readlink -f "/proc/$pid/exe") != "$(readlink -f "$TRIM_APPDEST/bin/opencode")" ]] || break
+   sleep 1
+  done
+  if [[ -r /proc/$pid/stat ]]; then
+   statline=$(cat "/proc/$pid/stat"); rest=${statline##*) }
+   printf '%s %s\n' "$pid" "$(awk '{print $20}' <<< "$rest")" > "$pidfile"
+  fi
+  for ((i=0;i<60;i++)); do
+   if ! alive; then stop_server; fail 'OpenCode 启动失败，请查看应用日志。'; fi
+   if health; then exit 0; fi
+   sleep 1
+  done
+  stop_server; fail 'OpenCode 健康检查超时，请查看应用日志。'
+  ;;
+ stop) stop_server ;;
+ status) alive || exit 3; load_settings; health || exit 3 ;;
+ _running) alive || exit 3 ;;
+ *) fail '支持的操作：start / stop / status' ;;
+esac

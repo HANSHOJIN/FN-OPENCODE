@@ -1,0 +1,4 @@
+#!/bin/bash
+source "$TRIM_APPDEST/lib/common.sh"
+prepare
+load_settings

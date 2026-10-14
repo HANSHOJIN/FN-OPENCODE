@@ -1,0 +1,12 @@
+#!/bin/bash
+source "$TRIM_APPDEST/lib/common.sh"
+prepare
+# Validate before stopping; failed edits leave the previous settings intact.
+p=${wizard_port:-4096}
+[[ $p =~ ^[0-9]{4,5}$ ]] && ((10#$p >= 1024 && 10#$p <= 65535)) || fail '端口须在 1024–65535 之间。'
+[[ ${wizard_username:-opencode} =~ ^[A-Za-z0-9_.-]{1,64}$ ]] || fail 'Web 用户名格式错误。'
+if [[ -n ${wizard_password:-} ]]; then [[ ${#wizard_password} -ge 12 && $wizard_password != *$'\n'* && $wizard_password != *$'\r'* ]] || fail '密码格式错误。'; fi
+if bash "$(dirname "$0")/main" _running; then
+ touch "$TRIM_PKGVAR/run/restart-after-config"
+ bash "$(dirname "$0")/main" stop
+fi

@@ -1,0 +1,48 @@
+[
+  {
+    "items": [
+      {
+        "rules": [
+          {
+            "message": "请输入端口",
+            "required": true
+          },
+          {
+            "message": "端口为 1024–65535",
+            "pattern": "^[0-9]{4,5}$"
+          }
+        ],
+        "label": "服务端口",
+        "initValue": "4096",
+        "field": "wizard_port",
+        "type": "text"
+      },
+      {
+        "rules": [
+          {
+            "message": "请输入用户名",
+            "required": true
+          },
+          {
+            "message": "仅允许字母、数字、点、短横线及下划线",
+            "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+          }
+        ],
+        "label": "Web 用户名",
+        "initValue": "opencode",
+        "field": "wizard_username",
+        "type": "text"
+      },
+      {
+        "label": "Web 密码（留空保留原密码）",
+        "field": "wizard_password",
+        "type": "password"
+      },
+      {
+        "helpText": "项目共享目录：OpenCode/projects。模型与 API Key 在 OpenCode 界面内配置。此 Web 账号可访问应用的全部会话与项目；请仅分享给可信用户。",
+        "type": "tips"
+      }
+    ],
+    "stepTitle": "修改 OpenCode 设置"
+  }
+]

@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+export JAVA_HOME=/var/apps/java-21-openjdk/target
+export MAVEN_HOME="$TRIM_APPDEST/libexec/apache-maven-3.9.11"
+exec "$MAVEN_HOME/bin/mvn" "$@"

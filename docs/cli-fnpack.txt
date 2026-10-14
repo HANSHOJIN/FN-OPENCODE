@@ -1,0 +1,194 @@
+
+
+
+
+
+fnpack | 飞牛应用开放平台{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"开发工具","item":"https://developer.fnnas.com/docs/category/开发工具"},{"@type":"ListItem","position":2,"name":"fnpack","item":"https://developer.fnnas.com/docs/cli/fnpack"}]}
+
+
+
+
+
+
+
+!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||"light"),document.documentElement.setAttribute("data-theme-choice",t||"light")}(),function(){try{const c=new URLSearchParams(window.location.search).entries();for(var[t,e]of c)if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()跳到主要内容
+
+飞牛应用开放平台开发文档开放 API更新日志
+
+
+
+
+
+
+
+
+
+
+
+欢迎加入
+快速开始
+
+开发指南
+
+应用案例
+
+开发工具
+fnpack
+appcenter-cli
+
+
+
+
+开发工具
+fnpack
+本页总览
+fnpack
+
+fnpack 用于创建飞牛 fnOS 应用项目，并将应用打包为可安装的 .fpk 文件。开发者可以在本地开发机使用，也可以在飞牛 fnOS 设备上使用。
+
+下载​
+
+根据开发机系统下载对应版本：
+
+
+Windows x86: fnpack-1.2.3-windows-amd64
+
+Linux x86: fnpack-1.2.3-linux-amd64
+
+Linux ARM: fnpack-1.2.3-linux-arm64
+
+macOS Intel: fnpack-1.2.3-darwin-amd64
+
+macOS Apple Silicon: fnpack-1.2.3-darwin-arm64
+
+
+Linux 或 macOS 可安装到系统路径：
+
+chmod +x fnpack-1.2.3-linux-amd64sudo mv fnpack-1.2.3-linux-amd64 /usr/local/bin/fnpackfnpack --help
+
+
+
+创建项目​
+
+创建普通应用项目：
+
+fnpack create <appname>
+
+
+
+创建不包含桌面入口的服务类项目：
+
+fnpack create <appname> --without-ui true
+
+
+
+创建 Docker 应用项目：
+
+fnpack create <appname> --template docker
+
+
+
+创建不包含桌面入口的 Docker 服务类项目：
+
+fnpack create <appname> --template docker --without-ui true
+
+
+
+Docker 模板会生成 docker-compose.yaml、基础资源声明和生命周期脚本框架。打包前需要根据应用实际运行方式检查并调整这些文件。
+
+项目结构​
+
+myapp/├── app/│   ├── ui/│   │   ├── config│   │   └── images/│   └── docker/│       └── docker-compose.yaml├── cmd/│   ├── main│   ├── install_init│   ├── install_callback│   ├── upgrade_init│   ├── upgrade_callback│   ├── uninstall_init│   ├── uninstall_callback│   ├── config_init│   └── config_callback├── config/│   ├── privilege│   └── resource├── wizard/├── manifest├── ICON.PNG└── ICON_256.PNG
+
+
+
+打包项目​
+
+在应用目录中执行：
+
+cd myappfnpack build
+
+
+
+指定其他目录进行打包：
+
+fnpack build --directory <path>
+
+
+
+打包检查​
+
+fnpack 会在生成 .fpk 前检查必要文件和基础格式。
+
+路径类型要求
+manifest文件存在，并包含必要字段
+config/privilege文件存在，并使用合法 JSON
+config/resource文件存在，并使用合法 JSON
+ICON.PNG文件存在
+ICON_256.PNG文件存在
+app/目录存在
+cmd/目录存在
+wizard/目录存在
+app/{desktop_uidir}/目录声明 desktop_uidir 时必须存在
+
+使用建议​
+
+
+将打包目录放在应用源码附近，便于版本管理和自动化构建。
+
+在发布构建脚本中加入 fnpack build。
+
+发布前在飞牛 fnOS 测试设备上安装生成的 .fpk 并完成基础验证。
+
+
+上一页
+开发工具
+下一页
+appcenter-cli
+
+
+下载
+创建项目
+项目结构
+打包项目
+打包检查
+使用建议
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+隐私协议
+
+
+服务条款
+
+
+联系我们
+
+
+加入我们
+
+Copyright © 广州铁刃智造技术有限公司 版权所有
+粤ICP备2023020469号
+
+
+
+
+
