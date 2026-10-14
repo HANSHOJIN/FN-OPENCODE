@@ -6,9 +6,11 @@
 
 本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-[版本下载](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
+[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.0-13/OpenCode-fnOS-1.19.0-13-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
 > 当前版本：[1.19.0-13](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.0-13)，支持 fnOS x86_64。
+
+![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
 
 ## 功能
 
@@ -30,7 +32,7 @@
 
 ## 安装与使用
 
-1. 从 [Releases](https://github.com/HANSHOJIN/FN-OPENCODE/releases) 下载 `.fpk` 文件。
+1. [下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.0-13/OpenCode-fnOS-1.19.0-13-x86_64.fpk)。如从 Releases 页面下载，请选择 `OpenCode-fnOS-1.19.0-13-x86_64.fpk`；`Source code` 是源码归档，不能用于飞牛安装。
 2. 在飞牛应用中心选择手动安装，上传 FPK。
 3. 按向导设置服务端口、Web 用户名和密码，等待依赖安装完成。
 4. 启动应用，点击飞牛桌面的 **OpenCode** 图标。
