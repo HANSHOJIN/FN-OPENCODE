@@ -137,9 +137,11 @@ python scripts/verify.py
 node --test scripts/console-oauth.test.mjs scripts/gateway.test.mjs scripts/gateway-fetch.test.mjs
 ```
 
-### 更新上游 OpenCode
+### 如何更新 OpenCode
 
-Web 适配与经过校验的上游资源绑定。更新上游版本时，需要一起核对入口和设置分包、版本读取锚点及对应 SHA256，再执行上述检查，并验证登录、消息、终端、扩展与窗口布局。不能只替换二进制或修改版本号；遇到不兼容资源时，网关会拒绝加载并在日志中说明原因。
+OpenCode 会随本项目的 FPK 安装包一起更新。需要升级时，请从 [Releases](https://github.com/HANSHOJIN/FN-OPENCODE/releases) 下载适合设备架构的新版安装包，在飞牛应用中心安装升级即可。
+
+飞牛版需要适配 OpenCode 的界面与功能，因此可能晚于官方版本发布。请使用本项目提供的安装包，手动替换其中的 OpenCode 程序可能导致界面无法打开或部分功能异常。
 
 ## 致谢与许可
 
