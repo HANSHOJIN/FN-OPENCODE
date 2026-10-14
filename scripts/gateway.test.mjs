@@ -7,9 +7,10 @@ import fs from 'node:fs'
 import { createGateway, adaptHTML, patchUI, patchSettings, stripPrefix, PREFIX, UI_SHA256 } from '../opencode-fnos/app/gateway/server.mjs'
 
 let embeddedUI
+const fixtureBinary = process.env.OPENCODE_TEST_BINARY || new URL('../opencode-fnos/app/bin/opencode', import.meta.url)
 function officialUI() {
   if (embeddedUI) return embeddedUI
-  const binary = fs.readFileSync(new URL('../opencode-fnos/app/bin/opencode', import.meta.url))
+  const binary = fs.readFileSync(fixtureBinary)
   const start = Buffer.from('const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/angular-html-DgL0RwuR.js","asse')
   let offset = 0
   while ((offset = binary.indexOf(start, offset)) >= 0) {
@@ -35,7 +36,7 @@ test('gateway accepts only its declared prefix', () => {
 })
 
 test('pinned official embedded UI supports router and truthful version adaptation', () => {
-  const binary = fs.readFileSync(new URL('../opencode-fnos/app/bin/opencode', import.meta.url))
+  const binary = fs.readFileSync(fixtureBinary)
   const prefix = Buffer.from('const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/angular-html-DgL0RwuR.js","asse')
   let offset = 0, found
   while ((offset = binary.indexOf(prefix, offset)) >= 0) {
@@ -53,7 +54,7 @@ test('pinned official embedded UI supports router and truthful version adaptatio
 })
 
 test('official settings gain a real extensions tab with a pinned compatibility check',()=>{
- const binary=fs.readFileSync(new URL('../opencode-fnos/app/bin/opencode',import.meta.url))
+ const binary=fs.readFileSync(fixtureBinary)
  const prefix=Buffer.from("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/index-Don-ekPW.js\",\"assets/index-Bk")
  const offset=binary.indexOf(prefix)
  assert.ok(offset>=0)

@@ -16,6 +16,10 @@ import tempfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
+TARGETS = {
+    'x86_64': ('opencode-linux-x64-baseline.tar.gz', 'x86', 62),
+    'arm64': ('opencode-linux-arm64.tar.gz', 'arm', 183),
+}
 
 def fetch(url, path):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,15 +98,14 @@ def build():
     args = ap.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+', args.version) or args.revision < 1:
         ap.error('Use a stable numeric version and a positive revision')
-    if args.arch != 'x86_64':
-        ap.error('ARM64 is gated on x86_64 fnOS acceptance; no untested ARM package is produced')
+    asset_name, fnos_platform, elf_machine = TARGETS[args.arch]
     metadata = ROOT / 'downloads' / f'release-v{args.version}.json'
     if not metadata.exists():
         fetch(f'https://api.github.com/repos/anomalyco/opencode/releases/tags/v{args.version}', metadata)
     release = json.loads(metadata.read_text('utf-8'))
     if release['tag_name'] != f'v{args.version}' or release.get('draft') or release.get('prerelease'):
         raise RuntimeError('Release tag is not the requested stable release')
-    asset = next(a for a in release['assets'] if a['name'] == 'opencode-linux-x64-baseline.tar.gz')
+    asset = next(a for a in release['assets'] if a['name'] == asset_name)
     expected = asset.get('digest', '')
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', expected):
         raise RuntimeError('Official release metadata lacks a SHA256 digest; refusing unverified binary')
@@ -126,10 +129,11 @@ def build():
             shutil.copyfileobj(src.extractfile(binary), out)
         destination.chmod(0o755)
         header = destination.open('rb').read(20)
-        if header[:4] != b'\x7fELF' or header[4:6] != b'\x02\x01' or int.from_bytes(header[18:20], 'little') != 62:
-            raise RuntimeError('Expected an x86_64 Linux ELF binary')
+        if header[:4] != b'\x7fELF' or header[4:6] != b'\x02\x01' or int.from_bytes(header[18:20], 'little') != elf_machine:
+            raise RuntimeError(f'Expected a {args.arch} Linux ELF binary')
     manifest = stage / 'manifest'
     content = re.sub(r'(?m)^version=.*$', f'version={args.version}-{args.revision}', manifest.read_text('utf-8'))
+    content = re.sub(r'(?m)^platform=.*$', f'platform={fnos_platform}', content)
     manifest.write_text(content, encoding='utf-8', newline='\n')
     # Bundle pnpm and Maven without touching the host's global installations.
     pnpm_version = '10.18.3'
@@ -174,7 +178,7 @@ def build():
     package_checksum = validate_fpk(result)
     result.with_suffix('.fpk.sha256').write_text(f'{digest(result)}  {result.name}\n', encoding='utf-8')
     evidence = {'upstream_tag': release['tag_name'], 'upstream_asset': asset['name'], 'upstream_sha256': actual, 'binary_sha256': digest(destination), 'fpk_sha256': digest(result), 'fnpack_version': '1.2.3', 'fnpack_sha256': digest(fnpack), 'pnpm_version': pnpm_version, 'pnpm_integrity': integrity, 'maven_version': maven_version, 'maven_sha512': maven_checksum.read_text().split()[0].lower(), 'unix_permissions_normalized': True, 'fnOS_device_tested': False}
-    evidence.update(fpk_container='gzip+tar', app_tgz_md5=package_checksum, fpk_internal_checksum_verified=True)
+    evidence.update(architecture=args.arch, fnos_platform=fnos_platform, elf_machine=elf_machine, fpk_container='gzip+tar', app_tgz_md5=package_checksum, fpk_internal_checksum_verified=True)
     result.with_suffix('.build.json').write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
     print(result)
 

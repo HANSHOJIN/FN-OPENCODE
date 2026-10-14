@@ -10,6 +10,11 @@
 
 > 当前版本：[1.19.0-13](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.0-13)，支持 fnOS x86_64。
 
+| 安装包 | 验证状态 | 下载 |
+| --- | --- | --- |
+| x86_64 | 已完成飞牛实机测试 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.0-13/OpenCode-fnOS-1.19.0-13-x86_64.fpk) |
+| ARM64 | 实验版，未经 ARM 真机验证 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.0-13/OpenCode-fnOS-1.19.0-13-arm64.fpk) |
+
 ![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
 
 ## 功能
@@ -24,7 +29,7 @@
 
 ## 环境要求
 
-- 飞牛 fnOS，**x86_64** 架构；暂不提供 ARM64 安装包。
+- 飞牛 fnOS，**x86_64** 或 **ARM64** 架构，请下载对应架构的安装包。ARM64 为实验版，已通过静态和打包检查，尚未验证 ARM 飞牛上的实际安装、运行依赖和服务运行情况。
 - 使用飞牛管理员账号打开应用。
 - NAS 能访问所选模型供应商；本地模型服务需提供 NAS 可访问的地址。
 
@@ -32,7 +37,7 @@
 
 ## 安装与使用
 
-1. [下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.0-13/OpenCode-fnOS-1.19.0-13-x86_64.fpk)。如从 Releases 页面下载，请选择 `OpenCode-fnOS-1.19.0-13-x86_64.fpk`；`Source code` 是源码归档，不能用于飞牛安装。
+1. 从上方表格下载对应架构的 FPK 安装包。文件名中的 `x86_64` 或 `arm64` 应与设备架构一致；`Source code` 是源码归档，不能用于飞牛安装。
 2. 在飞牛应用中心选择手动安装，上传 FPK。
 3. 按向导设置服务端口、Web 用户名和密码，等待依赖安装完成。
 4. 启动应用，点击飞牛桌面的 **OpenCode** 图标。

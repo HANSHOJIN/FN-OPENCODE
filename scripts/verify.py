@@ -15,6 +15,9 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+ARCH = os.environ.get('FPK_ARCH', 'x86_64')
+if ARCH not in ('x86_64', 'arm64'):
+    raise ValueError('FPK_ARCH must be x86_64 or arm64')
 BASH = os.environ.get('BASH_EXE', r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' else 'bash')
 
 def shellpath(path):
@@ -23,13 +26,15 @@ def shellpath(path):
 
 class PackageTests(unittest.TestCase):
     def test_package_permissions_and_contract(self):
-        artifact = ROOT / 'dist/OpenCode-fnOS-1.19.0-13-x86_64.fpk'
+        artifact = ROOT / f'dist/OpenCode-fnOS-1.19.0-13-{ARCH}.fpk'
         from build import validate_fpk
         validate_fpk(artifact)
         evidence = json.loads(artifact.with_suffix('.build.json').read_text())
         with artifact.open('rb') as f:
             self.assertEqual(evidence['fpk_sha256'], hashlib.file_digest(f, 'sha256').hexdigest())
         with tarfile.open(artifact) as outer:
+            manifest = outer.extractfile('manifest').read().decode()
+            self.assertRegex(manifest, r'(?m)^platform\s*=\s*' + ('arm' if ARCH == 'arm64' else 'x86') + r'\s*$')
             for member in outer:
                 self.assertFalse(member.mode & 0o022, member.name)
                 if member.name.startswith('cmd/') and member.isfile():
@@ -53,7 +58,7 @@ class PackageTests(unittest.TestCase):
                 self.assertFalse(config['allUsers'])
                 binary = app.extractfile('bin/opencode').read()
                 self.assertEqual(binary[:6], b'\x7fELF\x02\x01')
-                self.assertEqual(int.from_bytes(binary[18:20], 'little'), 62)
+                self.assertEqual(int.from_bytes(binary[18:20], 'little'), 183 if ARCH == 'arm64' else 62)
                 # Parse ELF dynamic dependencies without executing Linux code on Windows.
                 offset = struct.unpack_from('<Q', binary, 40)[0]
                 size, count = struct.unpack_from('<HH', binary, 58)
@@ -69,8 +74,8 @@ class PackageTests(unittest.TestCase):
                         if tag == 1:
                             needed.append(table[val:].split(b'\0', 1)[0].decode())
                 versions = sorted(set(re.findall(rb'GLIBC_(\d+\.\d+(?:\.\d+)?)', binary)), key=lambda s: tuple(map(int, s.split(b'.'))))
-                report = {'elf': 'Linux x86_64 64-bit little-endian', 'dynamic_dependencies': needed, 'max_referenced_glibc_symbol': versions[-1].decode() if versions else None, 'execution_tested': False}
-                (ROOT / 'dist/binary-inspection.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+                report = {'elf': f'Linux {ARCH} 64-bit little-endian', 'dynamic_dependencies': needed, 'max_referenced_glibc_symbol': versions[-1].decode() if versions else None, 'execution_tested': False}
+                (ROOT / f'dist/binary-inspection-{ARCH}.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
 
     def test_fpk_invalid_container_and_checksum_are_rejected(self):
         from build import validate_fpk
