@@ -8,9 +8,25 @@ prepare() {
  export HOME="$TRIM_PKGHOME" XDG_CONFIG_HOME="$TRIM_PKGETC"
  export XDG_DATA_HOME="$TRIM_PKGVAR/data" XDG_CACHE_HOME="$TRIM_PKGVAR/cache" XDG_STATE_HOME="$TRIM_PKGVAR/state"
  export OPENCODE_DISABLE_AUTOUPDATE=true
+ # Add the NAS trust bundle to Bun/Node's built-in roots, preserving explicit CA settings.
+ if [[ -z ${NODE_EXTRA_CA_CERTS:-} && -r /etc/ssl/certs/ca-certificates.crt ]]; then
+  export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+ fi
  export TMPDIR="${TRIM_PKGTMP:-$TRIM_PKGVAR/tmp}"
  mkdir -p "$TMPDIR"
  export PATH="$TRIM_APPDEST/bin:/var/apps/nodejs_v22/target/bin:/var/apps/python312/target/bin:/var/apps/java-21-openjdk/target/bin:$PATH"
+ if [[ -f "$TRIM_APPDEST/plugins/console-oauth.mjs" ]]; then
+  export OPENCODE_CONFIG_CONTENT
+  OPENCODE_CONFIG_CONTENT=$(python3 - "$TRIM_APPDEST/plugins/console-oauth.mjs" <<'PY'
+import json,os,pathlib,sys
+config=json.loads(os.environ.get('OPENCODE_CONFIG_CONTENT') or '{}')
+plugins=config.setdefault('plugin',[])
+url=pathlib.Path(sys.argv[1]).resolve().as_uri()
+if url not in plugins: plugins.append(url)
+print(json.dumps(config))
+PY
+)
+ fi
 }
 load_settings() {
  [[ -r "$TRIM_PKGETC/web.password" ]] || fail '缺少 Web 密码，请重新提交应用设置。'
@@ -28,5 +44,6 @@ load_settings() {
 health() {
  local credentials=${OPENCODE_SERVER_USERNAME}:${OPENCODE_SERVER_PASSWORD}
  credentials=${credentials//\\/\\\\}; credentials=${credentials//\"/\\\"}
- printf 'user = "%s"\n' "$credentials" | curl --config - --silent --fail --max-time 3 "http://127.0.0.1:$service_port/global/health" | grep -Eq '"healthy"[[:space:]]*:[[:space:]]*true'
+ printf 'user = "%s"\n' "$credentials" | curl --config - --silent --fail --max-time 3 "http://127.0.0.1:$service_port/global/health" | grep -Eq '"healthy"[[:space:]]*:[[:space:]]*true' || return 1
+ curl --unix-socket "$TRIM_APPDEST/app.sock" --silent --fail --max-time 3 -H 'X-Trim-Userid: 0' -H 'X-Trim-Isadmin: true' 'http://localhost/app/opencode-fnos/global/health' | grep -Eq '"healthy"[[:space:]]*:[[:space:]]*true'
 }

@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import struct
+import sys
 import subprocess
 import tarfile
 import tempfile
@@ -22,7 +23,9 @@ def shellpath(path):
 
 class PackageTests(unittest.TestCase):
     def test_package_permissions_and_contract(self):
-        artifact = ROOT / 'dist/OpenCode-fnOS-1.19.0-1-x86_64.fpk'
+        artifact = ROOT / 'dist/OpenCode-fnOS-1.19.0-10-x86_64.fpk'
+        from build import validate_fpk
+        validate_fpk(artifact)
         evidence = json.loads(artifact.with_suffix('.build.json').read_text())
         with artifact.open('rb') as f:
             self.assertEqual(evidence['fpk_sha256'], hashlib.file_digest(f, 'sha256').hexdigest())
@@ -45,7 +48,9 @@ class PackageTests(unittest.TestCase):
                 self.assertTrue(app.getmember('libexec/pnpm/package/bin/pnpm.cjs').isfile())
                 config = json.load(app.extractfile('ui/config'))['.url']['opencode-fnos.Application']
                 self.assertEqual(config['type'], 'iframe')
-                self.assertEqual(config['port'], '${wizard_port}')
+                self.assertEqual(config['gatewayPrefix'], '/app/opencode-fnos')
+                self.assertEqual(config['gatewaySocket'], 'app.sock')
+                self.assertFalse(config['allUsers'])
                 binary = app.extractfile('bin/opencode').read()
                 self.assertEqual(binary[:6], b'\x7fELF\x02\x01')
                 self.assertEqual(int.from_bytes(binary[18:20], 'little'), 62)
@@ -67,6 +72,19 @@ class PackageTests(unittest.TestCase):
                 report = {'elf': 'Linux x86_64 64-bit little-endian', 'dynamic_dependencies': needed, 'max_referenced_glibc_symbol': versions[-1].decode() if versions else None, 'execution_tested': False}
                 (ROOT / 'dist/binary-inspection.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
 
+    def test_fpk_invalid_container_and_checksum_are_rejected(self):
+        from build import validate_fpk
+        with tempfile.TemporaryDirectory(dir=ROOT / '.build') as temp:
+            for mode in ('w', 'w:gz'):
+                bad = Path(temp) / ('bad-' + mode.replace(':', '-') + '.fpk')
+                with tarfile.open(bad, mode) as archive:
+                    for name, data in [('manifest', b'checksum = 00000000000000000000000000000000\n'), ('app.tgz', b'changed payload')]:
+                        member = tarfile.TarInfo(name)
+                        member.size = len(data)
+                        archive.addfile(member, io.BytesIO(data))
+                with self.assertRaises(ValueError):
+                    validate_fpk(bad)
+
     def test_shell_syntax(self):
         files = list((ROOT / 'opencode-fnos/cmd').iterdir()) + list((ROOT / 'opencode-fnos/app/lib').glob('*.sh')) + [ROOT / 'scripts/build.sh', ROOT / 'opencode-fnos/app/bin/pnpm', ROOT / 'opencode-fnos/app/bin/mvn']
         for file in files:
@@ -83,6 +101,11 @@ class PackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT / '.build') as temp:
             env = os.environ.copy()
             base = Path(temp)
+            if os.name == 'nt':
+                shim = base / 'bin'
+                shim.mkdir()
+                (shim / 'python3').write_text('#!/bin/bash\nexec "' + shellpath(sys.executable) + '" "$@"\n')
+                env['PATH'] = str(shim) + os.pathsep + env['PATH']
             env.update(TRIM_APPDEST=shellpath(ROOT / 'opencode-fnos/app'), TRIM_PKGETC=shellpath(base / 'etc'), TRIM_PKGVAR=shellpath(base / 'var'), TRIM_PKGHOME=shellpath(base / 'home'), TRIM_TEMP_LOGFILE=shellpath(base / 'error.log'))
             script = shellpath(ROOT / 'opencode-fnos/app/lib/configure.sh')
             password = 'quote" backslash\\ $(touch NEVER) `touch NEVER`'

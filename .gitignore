@@ -7,3 +7,6 @@ opencode-fnos/app/bin/opencode
 __pycache__/
 *.pyc
 
+FNOSsecrect.MD
+*secret*.md
+*secrect*.md

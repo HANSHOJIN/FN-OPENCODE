@@ -1,126 +1,129 @@
 # OpenCode for fnOS
 
-将官方 OpenCode Linux Web 服务包装成飞牛 FPK 应用。桌面入口采用飞牛内部 iframe 窗口，服务以独立包用户运行，无 Docker，也不修改上游 OpenCode。
+<img src="opencode-fnos/ICON.PNG" width="88" alt="OpenCode 图标">
 
-本项目由社区开发，与 OpenCode 官方团队无隶属关系。
+在飞牛 NAS 上使用 OpenCode，让 AI 直接参与项目开发、文件编辑和终端操作。
 
-## 当前交付状态
+本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-- x86_64 开发测试包：`dist/OpenCode-fnOS-1.19.0-1-x86_64.fpk`。
-- 官方 OpenCode 1.19.0 Linux x64 baseline binary，经 GitHub release SHA256 验证；兼容不具备 AVX2 的 CPU。
-- 完整 FPK 工程、安装/配置向导、启动停止状态、日志轮转、升级备份、卸载加密导出、恢复工具、构建与检查脚本。
-- 已实际完成 fnpack 1.2.3 打包、包内权限与 ELF 检查、Shell 语法与恶意向导输入检查。
-- **尚未在 fnOS 设备安装或运行，不能作为实机验收通过的正式发布包。** 当前 Windows 电脑没有可用 Linux/WSL 环境。`ldd`、CLI help、Web/PTY/SSE、模型调用及持久化均需实机验证。
-- ARM64 在 x86_64 实机验收后加入；构建脚本当前会明确拒绝 ARM64。
+[版本下载](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-## 支持平台与运行依赖
+> 当前版本正在完成实机测试，尚未发布 Release。正式安装包将在测试完成后提供。
 
-当前仅构建 Linux x86_64 / fnOS `platform=x86`。ELF 检查发现 GLIBC 最高引用符号版本 2.30，依赖 libc、libpthread、libdl、libm 和 Linux 动态加载器。未填写未经实机测试的 `os_min_version`。
+## 功能
 
-应用声明飞牛运行时依赖 `nodejs_v22`、`python312`、`java-21-openjdk`。服务本身使用 OpenCode standalone binary；这些运行时供项目命令使用。构建时另行捆绑 pnpm 10.18.3（npm registry SHA512 integrity）和 Maven 3.9.11（Apache SHA512），由应用私有命令包装器调用。
+- **飞牛桌面集成**：桌面窗口、深浅色标题栏与紧凑布局。
+- **AI 编程**：使用 OpenCode 的会话、项目、文件操作和终端功能。
+- **供应商连接**：保留 API Key 连接，补充 OpenCode Console / Go 账号授权。
+- **扩展配置**：管理 MCP 和插件配置，查看已安装技能。
+- **数据持久化**：共享目录保存项目，应用数据目录保存配置、授权信息和会话。
+- **统一访问入口**：复用飞牛登录和访问地址，支持消息流与终端连接。
 
-启动脚本依赖 Bash、curl、util-linux 的 flock/setsid；卸载保留数据依赖 openssl；实机诊断需要 file/ldd。Git 使用 NAS 上已有的 Git，当前未捆绑 Git，也未声明未核实的飞牛 Git 包名。首次实机测试必须确认 Git 存在；缺失时 Git 验收不通过。
+## 环境要求
 
-## 安装与打开
+- 飞牛 fnOS，**x86_64** 架构；暂不提供 ARM64 安装包。
+- 使用飞牛管理员账号打开应用。
+- NAS 能访问所选模型供应商；本地模型服务需提供 NAS 可访问的地址。
 
-1. 在飞牛应用中心手动安装 `dist` 中的 FPK。
-2. 设置服务端口（默认 4096）、用户名（默认 opencode）及至少 12 个字符的 Web 密码。
-3. 等待运行时依赖和应用安装完成，在应用中心启动。
-4. 双击桌面 OpenCode 图标，在飞牛窗口内输入 Web 账号密码。
-5. 在文件管理器的 `OpenCode/projects` 共享目录放入项目，在 OpenCode 内打开对应项目目录。
+安装时会按需安装飞牛运行时依赖：Node.js 22、Python 3.12、OpenJDK 21。应用另外提供 pnpm 和 Maven；需要 Git 的项目请确保 NAS 已安装 Git。
 
-当前入口为 HTTP 独立端口。请用 HTTP 飞牛桌面进行第一轮窗口验收；HTTPS 飞牛桌面嵌入 HTTP 服务可能被浏览器阻止。跨端口 iframe 的 Basic Auth 弹窗、剪贴板权限与快捷键仍需验证。如果登录挑战被浏览器阻止，需要后续增加兼容登录入口，不能直接关闭密码。
+## 安装与使用
 
-## 构建
+1. 从 [Releases](https://github.com/HANSHOJIN/FN-OPENCODE/releases) 下载 `.fpk` 文件，发布后即可获取。
+2. 在飞牛应用中心选择手动安装，上传 FPK。
+3. 按向导设置服务端口、Web 用户名和密码，等待依赖安装完成。
+4. 启动应用，点击飞牛桌面的 **OpenCode** 图标。
+5. 将项目放入 `OpenCode/projects` 共享目录，在应用内添加项目，连接供应商并新建会话。
 
-需要 Python 3.12+、网络连接，以及足够保存 binary、暂存包和结果的磁盘空间。脚本自动获取官方 fnpack，缓存下载，校验 binary 和开发工具，并规范化包内 Unix 权限。Windows fnpack 原始输出不保留执行权限，**应使用本项目构建脚本产生的 dist 包**。
+日常访问请使用飞牛桌面入口。外网访问沿用飞牛已有的安全访问方式，无需单独映射 OpenCode 服务端口。
 
-Linux/macOS：
+### 连接模型供应商
 
-```bash
-./scripts/build.sh 1.19.0 x86_64
-python3 scripts/verify.py
-```
+在设置中打开“提供商”，选择服务并完成连接。
 
-Windows：
+- **API Key**：按供应商要求填写密钥和服务地址。
+- **OpenCode Console / Go**：选择 `OpenCode Console account (Go subscription)`，打开官方授权链接并完成账号授权。
+- **本地模型服务**：使用 NAS 可以访问的服务地址；NAS 上的 `localhost` 指向 NAS 本机。
 
-```powershell
-./scripts/build.ps1 -Version 1.19.0 -Architecture x86_64 -Python 'C:\path\to\python.exe'
-& 'C:\path\to\python.exe' scripts/verify.py
-```
+授权与模型使用范围以供应商账号、套餐和服务状态为准。密钥在 OpenCode 内配置，无需写入安装包。
 
-本机已验证的 Python 路径：
+### MCP、插件与技能
 
-```powershell
-./scripts/build.ps1 -Python 'C:\Users\hansh\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
-```
+打开 **设置 → 扩展**：
 
-仅调整包装逻辑时用 `-Revision 2`，Linux 可传 `--revision 2`。版本采用 `OpenCode版本-包装修订号`。不能使用未经核实的校验值；上游 release 缺少 SHA256 digest 时构建会停止。
+- **MCP**：查看和编辑全局 MCP 服务配置。
+- **插件**：配置 npm 插件或服务器上的本地插件。
+- **技能**：查看已发现技能的名称、描述和文件位置。
 
-`opencode-fnos/app/bin/opencode` 是已下载的本地 binary；构建会重新从经过校验的版本归档取出 binary。pnpm/Maven 文件生成在 `.build` 暂存工程中，不安装到开发电脑的全局环境。
+技能通过 `SKILL.md` 文件安装：
 
-## 开发与数据路径
-
-| 内容 | 路径 |
+| 范围 | 目录 |
 | --- | --- |
-| 安装文件 | `$TRIM_APPDEST` |
-| Web 服务设置 | `$TRIM_PKGETC/web.port`、`web.username`、`web.password` |
-| OpenCode 配置 | `$TRIM_PKGETC/opencode/` |
-| HOME | `$TRIM_PKGHOME` |
-| Provider、会话、数据库 | `$TRIM_PKGVAR/data/opencode/`（具体文件名随上游版本变化） |
-| 缓存 | `$TRIM_PKGVAR/cache/opencode/` |
-| 状态 | `$TRIM_PKGVAR/state/opencode/` |
-| 临时文件 | `$TRIM_PKGTMP`，缺省时 `$TRIM_PKGVAR/tmp` |
-| 服务输出 | `$TRIM_PKGVAR/log/opencode.log` |
-| 上游内部日志 | `$TRIM_PKGVAR/data/opencode/log/` |
-| 升级备份 | `$TRIM_PKGVAR/backups/时间戳/` |
-| 项目 | `$TRIM_DATA_SHARE_PATHS` 中声明的 `OpenCode/projects` 目录 |
+| 全局技能 | `/var/apps/opencode-fnos/etc/opencode/skills/<名称>/SKILL.md` |
+| 项目技能 | `<项目目录>/.opencode/skills/<名称>/SKILL.md` |
 
-包用户权限与共享 ACL 由飞牛资源声明管理，没有 root 服务或 `chmod -R 777`。应用设置中的目录授权入口保持开放，可由用户显式授权已有目录。运行身份隔离不等于文件系统沙箱：程序仍可读取系统允许包用户读取的文件。
+扩展页提供配置和查看功能，尚不包含插件市场、技能上传安装或 MCP OAuth 图形引导。技能文件安装后可重启应用，再刷新列表。
 
-启动时检查密码、项目目录、端口和 binary，使用 PID、进程 binary 与启动时间识别服务，再等待官方 `/global/health`。健康检查账号通过 curl 标准输入传递，不放入命令行或日志。停止时 TERM 后最多等待 15 秒，再对已验证进程组 KILL。服务输出以约 5 MiB 为阈值轮转，保留 3 份历史；上游内部日志遵循上游自身策略。
+## 数据与升级
 
-## Provider 配置
+项目文件位于 `OpenCode/projects` 共享目录；应用配置、授权信息和会话数据由 fnOS 应用数据目录保存。
 
-模型密钥全部在 OpenCode 界面配置，不在 FPK 向导收集。OpenCode 原生 Provider 流程负责 DeepSeek、OpenCode Go、OpenRouter、OpenAI Compatible 等；Ollama/LM Studio 需要填写 NAS 可访问的端点。不同 Provider 在当前上游 UI 中可用的配置方式需实测；本包未添加独立 Provider 页面。
+- 升级前建议备份重要项目和应用数据。
+- OpenCode 随 FPK 更新，应用内自更新已禁用。
+- 卸载时可选择加密导出私有数据，解密密码为卸载时使用的 Web 密码，请妥善保管。
+- 项目共享目录中的文件不会由本项目的卸载脚本删除。
 
-## 升级与恢复
+当前使用共享的 OpenCode 实例，不按飞牛账号隔离会话和项目。请仅向可信管理员开放访问。独立 Web 服务端口使用安装时设置的账号密码，不应直接暴露到公网。
 
-升级前先停止服务并分别备份配置、data/state 和 HOME；项目共享目录不参与覆盖。所有 OpenCode 自更新均禁用，binary 随 FPK 更新。
+## 常见问题
 
-升级失败时保留当前备份，并重新安装上一版 FPK；恢复配置和数据库时服务必须停止，数据库要与对应旧版 binary 一起恢复。备份不是已经测试过的自动回滚。升级备份目前不自动删除，应由管理员确认恢复点后清理。
+**安装时提示缺少运行环境**
 
-卸载默认把私有配置、会话与 HOME 导出为 AES-256-CBC/PBKDF2 加密文件，保存到 `OpenCode/projects/OpenCode-private-时间戳.tar.enc`。解密密码为卸载时的 Web 密码，请保管。加密导出失败时脚本报错，停止继续卸载。选择删除则交由 fnOS 清理应用私有目录；系统卸载行为需实机验收。任何选项都不会由本项目删除共享项目。
+Node.js、Python 和 Java 依赖由飞牛应用中心管理。依赖提示本身不代表应用运行在 Docker 容器中。
 
-重装后的恢复工具是 `$TRIM_APPDEST/lib/restore.py`，需要 Python 3.12+。在维护终端中使用飞牛提供的 `TRIM_PKGETC`、`TRIM_PKGVAR`、`TRIM_PKGHOME` 环境变量，停止应用后执行：
+**供应商连接失败或模型不可用**
+
+检查供应商账号、套餐、服务地址，以及 NAS 的网络、系统时间和证书。Console 连接异常不会再导致整个供应商列表消失。
+
+**界面版本与安装包版本不同**
+
+安装包版本包含 fnOS 适配修订号，上游服务和内嵌 Web 界面也可能使用不同版本号。关于界面会分别显示。
+
+**窗口标题栏没有随主题变化**
+
+关闭应用窗口后重新打开。标题栏适配依赖飞牛当前的窗口结构；fnOS 更新后若出现兼容问题，请提交反馈。
+
+反馈时请附上 fnOS 版本、应用版本、访问方式和错误截图，避免提供密码、API Key 或授权令牌。
+
+## 从源码构建
+
+需要 Python 3.12+ 和网络连接。构建脚本下载并校验上游程序与打包工具，结果输出到 `dist/`。
 
 ```bash
-python3 "$TRIM_APPDEST/lib/restore.py" /实际项目路径/OpenCode-private-时间戳.tar.enc
+python scripts/build.py
 ```
 
-工具会交互询问旧密码，验证归档路径后还原。恢复后在飞牛配置向导中把端口、用户名和密码设为恢复前的值，再启动服务；向导端口决定桌面入口。恢复工具尚未经过 fnOS 实机验证。
+也可以指定上游版本、架构和适配修订号：
 
-## 常见问题与安全说明
+```bash
+python scripts/build.py 1.19.0 x86_64 --revision 10
+```
 
-- 启动失败：先查看飞牛显示的生命周期错误和应用日志。运行 `bash "$TRIM_APPDEST/lib/diagnose.sh"` 可检查实际依赖、OpenCode CLI help 与开发工具；它不会打印环境变量或密码。
-- 端口占用：在应用设置修改端口。FPK 不写固定 `service_port`，桌面入口通过向导变量绑定，启动时动态检查。
-- iframe 空白：检查浏览器 mixed content、认证挑战、CSP 和 WebSocket 请求。不要据此改成未认证服务。
-- 终端找不到命令：检查飞牛运行时依赖、Git 和 PATH；项目自带工具可以放在应用用户允许执行的位置。
-- 多人共用：当前一个 Web 账号共享所有会话与可访问项目，不是按飞牛用户隔离的多租户系统。
-- 只向可信用户提供 Web 密码。该服务允许 Shell 与文件修改。独立端口不复用飞牛登录态，不应直接暴露到公网；HTTPS 与统一网关属于后续版本。
+安装包检查需要 Bash；Windows 可使用 Git for Windows 提供的 Bash：
 
-## 实机验收
+```bash
+python scripts/verify.py
+```
 
-完整逐项清单见 `docs/ACCEPTANCE.md`。在该清单实际通过前，本包仅供开发测试。
+网关与授权适配的回归检查需要 Node.js：
 
-## 核对的官方资料
+```bash
+node --test scripts/console-oauth.test.mjs scripts/gateway.test.mjs scripts/gateway-fetch.test.mjs
+```
 
-- [飞牛 fnpack 1.2.3](https://developer.fnnas.com/docs/cli/fnpack/)
-- [飞牛桌面 iframe 入口](https://developer.fnnas.com/docs/core-concepts/app-entry/)
-- [飞牛资源与共享 ACL](https://developer.fnnas.com/docs/core-concepts/resource/)
-- [飞牛运行时依赖](https://developer.fnnas.com/docs/core-concepts/runtime/)
-- [OpenCode 官方 1.19.0 release](https://github.com/anomalyco/opencode/releases/tag/v1.19.0)
-- [OpenCode CLI](https://docs.opencode.ai/docs/cli/)
-- [OpenCode 1.19.0 Web UI/CSP 实现](https://github.com/anomalyco/opencode/blob/v1.19.0/packages/opencode/src/server/shared/ui.ts)
+## 致谢与许可
 
-官方页面原文与相关上游源码快照保存在 `docs/`。核对日期：2026-10-13。
+- [OpenCode](https://github.com/anomalyco/opencode)：提供上游 AI 编程工具与 Web 界面。
+- [飞牛应用开放平台](https://developer.fnnas.com/)：提供 fnOS 应用打包与桌面集成能力。
+
+本项目遵循 [MIT License](opencode-fnos/LICENSE)，保留上游版权声明。OpenCode 名称及标识归其各自权利人所有。
