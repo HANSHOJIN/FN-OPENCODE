@@ -27,7 +27,7 @@ case ${1:-} in
   if alive; then load_settings; health || fail '进程存在但健康检查失败，请停止后重试。'; exit 0; fi
   load_settings
   [[ -x "$TRIM_APPDEST/bin/opencode" ]] || fail 'OpenCode binary 缺失或不可执行。'
-  for tool in curl setsid flock; do command -v "$tool" >/dev/null || fail "缺少运行工具：$tool"; done
+  for tool in python3 node setsid flock; do command -v "$tool" >/dev/null || fail "缺少运行工具：$tool"; done
   if command -v ss >/dev/null && ss -H -ltn "sport = :$service_port" | grep -q .; then fail '服务端口已被占用，请修改应用设置。'; fi
   setsid bash "$TRIM_APPDEST/lib/run.sh" 9>&- </dev/null >> "$TRIM_PKGVAR/log/launcher.log" 2>&1 &
   pid=$!

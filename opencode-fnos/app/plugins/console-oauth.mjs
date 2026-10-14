@@ -11,7 +11,9 @@ async function post(path, body) {
     body: new URLSearchParams(body),
     signal: AbortSignal.timeout(15000),
   })
-  const data = await response.json()
+  let data
+  try { data = await response.json() }
+  catch { throw new Error(`Console authorization returned non-JSON (HTTP ${response.status})`) }
   if (!response.ok && !data.error) throw new Error(`Console authorization HTTP ${response.status}`)
   return data
 }
@@ -32,7 +34,9 @@ async function remoteOptions(auth, providerID) {
   if (auth.metadata?.orgID) headers['x-org-id'] = auth.metadata.orgID
   const response = await fetch(SERVER + '/api/config', { headers, signal: AbortSignal.timeout(15000) })
   if (!response.ok) throw new Error(`Console workspace configuration HTTP ${response.status}`)
-  const data = await response.json()
+  let data
+  try { data = await response.json() }
+  catch { throw new Error(`Console workspace configuration returned non-JSON (HTTP ${response.status})`) }
   const provider = data.config?.provider?.[providerID]
   if (!provider) throw new Error(`Console workspace does not provide ${providerID}`)
   return {

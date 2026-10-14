@@ -23,7 +23,7 @@ def shellpath(path):
 
 class PackageTests(unittest.TestCase):
     def test_package_permissions_and_contract(self):
-        artifact = ROOT / 'dist/OpenCode-fnOS-1.19.0-10-x86_64.fpk'
+        artifact = ROOT / 'dist/OpenCode-fnOS-1.19.0-13-x86_64.fpk'
         from build import validate_fpk
         validate_fpk(artifact)
         evidence = json.loads(artifact.with_suffix('.build.json').read_text())
@@ -96,6 +96,44 @@ class PackageTests(unittest.TestCase):
             subprocess.run([BASH, shellpath(ROOT / 'opencode-fnos/app/lib/logpipe.sh'), shellpath(log)], input=(b'x' * 9000 + b'\n') * 800, check=True, capture_output=True)
             self.assertTrue(log.with_suffix('.log.1').exists())
             self.assertLess(log.stat().st_size, 5242880)
+
+    def test_native_log_rotation_preserves_active_inode(self):
+        spec = importlib.util.spec_from_file_location('maintenance', ROOT / 'opencode-fnos/app/lib/maintenance.py')
+        maintenance = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(maintenance)
+        with tempfile.TemporaryDirectory(dir=ROOT / '.build') as temp:
+            folder = Path(temp)
+            log = folder / 'opencode.log'
+            log.write_bytes(b'first' * 100)
+            inode = log.stat().st_ino
+            with log.open('ab') as writer:
+                maintenance.rotate_logs(folder, limit=100)
+                self.assertEqual(log.stat().st_ino, inode)
+                self.assertEqual(log.stat().st_size, 0)
+                self.assertEqual((folder / 'opencode.log.1').read_bytes(), b'first' * 100)
+                writer.write(b'second' * 100)
+                writer.flush()
+                self.assertEqual(log.read_bytes(), b'second' * 100)
+            for _ in range(4):
+                log.write_bytes(b'next' * 100)
+                maintenance.rotate_logs(folder, limit=100)
+            self.assertTrue((folder / 'opencode.log.3').exists())
+            self.assertFalse((folder / 'opencode.log.4').exists())
+
+    def test_health_json_requires_top_level_boolean(self):
+        spec = importlib.util.spec_from_file_location('health', ROOT / 'opencode-fnos/app/lib/health.py')
+        health = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(health)
+        class Connection:
+            status = 200
+            def __init__(self, data): self.data = data
+            def request(self, *args, **kwargs): pass
+            def getresponse(self): return self
+            def read(self, limit): return self.data[:limit]
+            def close(self): pass
+        for data in [b'{"nested":{"healthy":true}}', b'{"healthy":"true"}', b'{"healthy":false}', b'not JSON']:
+            self.assertFalse(health.healthy(Connection(data), '/', {}))
+        self.assertTrue(health.healthy(Connection(b'{"healthy":true,"version":"test"}'), '/', {}))
 
     def test_wizard_injection_and_preservation(self):
         with tempfile.TemporaryDirectory(dir=ROOT / '.build') as temp:

@@ -3,11 +3,11 @@ import assert from 'node:assert/strict'
 import vm from 'node:vm'
 import fs from 'node:fs'
 
-function environment() {
+function environment(fetcher, extra = {}) {
   const calls=[]
-  const context={URL,Request,XMLHttpRequest:class {open(){}},HTMLLinkElement:class {},HTMLScriptElement:class {},HTMLImageElement:class {},location:new URL('http://nas.local/app/opencode-fnos/'),localStorage:{getItem:()=>null}}
+  const context={URL,Request,XMLHttpRequest:class {open(){}},HTMLLinkElement:class {},HTMLScriptElement:class {},HTMLImageElement:class {},location:new URL('http://nas.local/app/opencode-fnos/'),localStorage:{getItem:()=>null},...extra}
   class FakeWorker { constructor(url, options) {this.url=url;this.options=options} }
-  context.window={__FNOS_OPENCODE__:{prefix:'/app/opencode-fnos'},WebSocket:class {},Worker:FakeWorker,SharedWorker:FakeWorker,fetch:async (...args)=>{calls.push(args);return 'sent'}}
+  context.window={__FNOS_OPENCODE__:{prefix:'/app/opencode-fnos'},WebSocket:class {},Worker:FakeWorker,SharedWorker:FakeWorker,fetch:async (...args)=>{calls.push(args);return fetcher ? fetcher(...args) : 'sent'}}
   vm.runInNewContext(fs.readFileSync(new URL('../opencode-fnos/app/gateway/bootstrap.js',import.meta.url),'utf8'),context)
   return {...context,calls}
 }
@@ -23,6 +23,38 @@ test('unnamed fnOS global projects use the default label without renaming direct
  assert.equal(label(named,server),named)
  assert.equal(label(git,server),git)
  assert.equal(label(project,{type:'http',http:{url:'https://other-server.example'}}),project)
+})
+
+test('global permission switch works without a session and restores the previous policy',async()=>{
+ let policy={bash:'ask',edit:'deny'},fail=false
+  const env=environment(async(url,options)=>{
+  assert.equal(url,'http://nas.local/app/opencode-fnos/global/config')
+  if(options?.method==='PATCH'){
+   const body=JSON.parse(options.body)
+   assert.deepEqual(Object.keys(body),['permission'])
+   if(fail)return {ok:false,status:500}
+   policy=body.permission
+  }
+  return {ok:true,json:async()=>({permission:policy==='allow'?{'*':'allow'}:policy})}
+ },{document:{addEventListener(){},createElement:()=>({setAttribute(){},style:{},remove(){}}),body:{append(){}}},setTimeout:callback=>{callback();return 0}})
+ const signal=initial=>{let value=initial;return[()=>value,next=>{value=next}]}
+ const controller=env.window.__FNOS_OPENCODE__.permissionController(signal)
+ await new Promise(setImmediate)
+ assert.equal(controller.enabled(),true)
+ assert.equal(controller.accepting(),false)
+ await controller.set(true)
+ assert.equal(policy,'allow')
+ assert.equal(controller.accepting(),true)
+ const reopened=env.window.__FNOS_OPENCODE__.permissionController(signal)
+ await new Promise(setImmediate)
+ assert.equal(reopened.accepting(),true,'Native wildcard policies remain enabled when settings are reopened')
+ fail=true
+ await controller.set(false)
+ assert.equal(controller.accepting(),true,'Failed saves must not falsely display a disabled policy')
+ fail=false
+ await controller.set(false)
+ assert.deepEqual(policy,{bash:'ask',edit:'deny'})
+ assert.equal(controller.accepting(),false)
 })
 test('already prefixed SDK Request keeps its original non-streaming body',async()=>{
  const env=environment()

@@ -93,3 +93,12 @@ test('an expired Console credential with failed refresh does not hide other prov
   assert.equal(options.apiKey,'expired')
  } finally {globalThis.fetch=oldFetch}
 })
+
+test('HTML authorization error pages produce a bounded error without echoing their contents',async()=>{
+ const oldFetch=globalThis.fetch
+ globalThis.fetch=async()=>({ok:false,status:502,json:async()=>{throw new SyntaxError('<html>private proxy details</html>')}})
+ try {
+  const plugin=await OpenCodeGoConsole({client:{}})
+  await assert.rejects(plugin.auth.methods[0].authorize(),error=>error.message==='Console authorization returned non-JSON (HTTP 502)')
+ } finally {globalThis.fetch=oldFetch}
+})

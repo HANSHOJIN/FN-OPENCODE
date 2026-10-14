@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">OpenCode for fnOS</title>
+  <path fill="#18181b" d="M0 0h256v256H0z"/>
+  <path fill="#eeeef2" d="m81 67 17 16-41 45 41 45-17 17-56-62zm94 0 56 61-56 62-17-17 41-45-41-45z"/>
+  <path fill="#62d6a7" d="m135 54 23 6-36 143-23-6z"/>
+</svg>

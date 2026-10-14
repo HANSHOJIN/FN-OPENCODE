@@ -90,7 +90,7 @@ def build():
     ap = argparse.ArgumentParser()
     ap.add_argument('version', nargs='?', default='1.19.0')
     ap.add_argument('arch', nargs='?', choices=['x86_64', 'arm64'], default='x86_64')
-    ap.add_argument('--revision', type=int, default=10)
+    ap.add_argument('--revision', type=int, default=13)
     args = ap.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+', args.version) or args.revision < 1:
         ap.error('Use a stable numeric version and a positive revision')

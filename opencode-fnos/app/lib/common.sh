@@ -16,6 +16,7 @@ prepare() {
  mkdir -p "$TMPDIR"
  export PATH="$TRIM_APPDEST/bin:/var/apps/nodejs_v22/target/bin:/var/apps/python312/target/bin:/var/apps/java-21-openjdk/target/bin:$PATH"
  if [[ -f "$TRIM_APPDEST/plugins/console-oauth.mjs" ]]; then
+  command -v python3 >/dev/null || fail '缺少运行工具：python3'
   export OPENCODE_CONFIG_CONTENT
   OPENCODE_CONFIG_CONTENT=$(python3 - "$TRIM_APPDEST/plugins/console-oauth.mjs" <<'PY'
 import json,os,pathlib,sys
@@ -36,14 +37,11 @@ load_settings() {
  [[ $service_port =~ ^[0-9]{4,5}$ ]] && ((10#$service_port >= 1024 && 10#$service_port <= 65535)) || fail '端口须在 1024–65535 之间。'
  [[ $OPENCODE_SERVER_USERNAME =~ ^[A-Za-z0-9_.-]{1,64}$ ]] || fail 'Web 用户名格式错误。'
  [[ ${#OPENCODE_SERVER_PASSWORD} -ge 12 ]] || fail 'Web 密码至少需要 12 个字符。'
- export OPENCODE_SERVER_USERNAME OPENCODE_SERVER_PASSWORD
+ export -n OPENCODE_SERVER_USERNAME OPENCODE_SERVER_PASSWORD
  local shares=${TRIM_DATA_SHARE_PATHS:-}
  workspace=${shares%%:*}
  [[ -n $workspace && -d $workspace && -w $workspace ]] || fail 'OpenCode/projects 共享目录尚未就绪或没有写入权限。'
 }
 health() {
- local credentials=${OPENCODE_SERVER_USERNAME}:${OPENCODE_SERVER_PASSWORD}
- credentials=${credentials//\\/\\\\}; credentials=${credentials//\"/\\\"}
- printf 'user = "%s"\n' "$credentials" | curl --config - --silent --fail --max-time 3 "http://127.0.0.1:$service_port/global/health" | grep -Eq '"healthy"[[:space:]]*:[[:space:]]*true' || return 1
- curl --unix-socket "$TRIM_APPDEST/app.sock" --silent --fail --max-time 3 -H 'X-Trim-Userid: 0' -H 'X-Trim-Isadmin: true' 'http://localhost/app/opencode-fnos/global/health' | grep -Eq '"healthy"[[:space:]]*:[[:space:]]*true'
+ python3 "$TRIM_APPDEST/lib/health.py" "$TRIM_APPDEST" "$TRIM_PKGETC"
 }

@@ -1,6 +1,48 @@
 /* Runs before upstream modules; keep upstream router and requests under fnOS. */
 (() => {
   const prefix = window.__FNOS_OPENCODE__.prefix
+  // The upstream settings controller only works for persisted sessions. This
+  // controller exposes the native server's global default policy on any page.
+  window.__FNOS_OPENCODE__.permissionController = signal => {
+    const [checked, setChecked] = signal(false)
+    const [ready, setReady] = signal(false)
+    const [saving, setSaving] = signal(false)
+    let previous = 'ask'
+    const allowsByDefault = policy => policy === 'allow' || (policy && typeof policy === 'object' && policy['*'] === 'allow')
+    const notice = text => {
+      const element = document.createElement('div')
+      element.setAttribute('role', 'status')
+      element.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:2147483647;max-width:420px;padding:12px 16px;border:1px solid #555;border-radius:8px;background:#242424;color:#eee;font:14px sans-serif'
+      element.textContent = text
+      document.body.append(element)
+      setTimeout(() => element.remove(), 8000)
+    }
+    const config = async value => {
+      const options = value === undefined ? undefined : {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({permission:value})}
+      const response = await window.fetch(prefix + '/global/config', options)
+      if (!response.ok) throw new Error('Permission settings HTTP ' + response.status)
+      return response.json()
+    }
+    config().then(value => {
+      if (!allowsByDefault(value.permission)) previous = value.permission ?? 'ask'
+      setChecked(Boolean(allowsByDefault(value.permission)))
+      setReady(true)
+    }).catch(() => notice('无法读取自动审批设置，请检查应用连接后重新打开设置。'))
+    return {
+      accepting: checked,
+      enabled: () => ready() && !saving(),
+      async set(value) {
+        if (!ready() || saving()) return
+        setSaving(true)
+        try {
+          await config(value ? 'allow' : previous)
+          setChecked(value)
+          notice(value ? '已开启全局默认自动批准；项目单独设置的权限规则仍优先。' : '已恢复全局审批策略。')
+        } catch { notice('自动审批设置保存失败，请检查应用连接后重试。') }
+        finally { setSaving(false) }
+      },
+    }
+  }
   if (window.frameElement) import(prefix + '/_fnos/window-theme.js')
     .then(module => module.applyWindowTheme()).catch(() => {})
   window.__FNOS_OPENCODE__.projectMetadata = (project, server) => {

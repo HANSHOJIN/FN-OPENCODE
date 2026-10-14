@@ -12,7 +12,7 @@ if [[ ${wizard_keep_data:-true} == true ]]; then
  tar -czf "$temp/etc.tar.gz" -C "$TRIM_PKGETC" .
  tar -czf "$temp/data.tar.gz" -C "$TRIM_PKGVAR" data state
  tar -czf "$temp/home.tar.gz" -C "$TRIM_PKGHOME" .
- tar -cf - -C "$temp" etc.tar.gz data.tar.gz home.tar.gz | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 -pass env:OPENCODE_SERVER_PASSWORD -out "$backup.new"
+ tar -cf - -C "$temp" etc.tar.gz data.tar.gz home.tar.gz | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 -pass "file:$TRIM_PKGETC/web.password" -out "$backup.new"
  mv "$backup.new" "$backup"
 elif [[ ${wizard_keep_data:-} != false ]]; then
  fail '卸载选项无效。'
