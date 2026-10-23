@@ -26,7 +26,7 @@ def shellpath(path):
 
 class PackageTests(unittest.TestCase):
     def test_package_permissions_and_contract(self):
-        artifact = ROOT / f'dist/OpenCode-fnOS-1.19.0-13-{ARCH}.fpk'
+        artifact = ROOT / f'dist/OpenCode-fnOS-1.19.4-1-{ARCH}.fpk'
         from build import validate_fpk
         validate_fpk(artifact)
         evidence = json.loads(artifact.with_suffix('.build.json').read_text())
@@ -91,7 +91,7 @@ class PackageTests(unittest.TestCase):
                     validate_fpk(bad)
 
     def test_shell_syntax(self):
-        files = list((ROOT / 'opencode-fnos/cmd').iterdir()) + list((ROOT / 'opencode-fnos/app/lib').glob('*.sh')) + [ROOT / 'scripts/build.sh', ROOT / 'opencode-fnos/app/bin/pnpm', ROOT / 'opencode-fnos/app/bin/mvn']
+        files = list((ROOT / 'opencode-fnos/cmd').iterdir()) + list((ROOT / 'opencode-fnos/app/lib').glob('*.sh')) + [ROOT / 'scripts/build.sh', ROOT / 'opencode-fnos/app/bin/pnpm', ROOT / 'opencode-fnos/app/bin/mvn', ROOT / 'opencode-fnos/app/bin/fnos-opencode-update']
         for file in files:
             subprocess.run([BASH, '-n', shellpath(file)], check=True, capture_output=True)
 
@@ -186,11 +186,13 @@ class PackageTests(unittest.TestCase):
             (source / 'etc').mkdir(parents=True)
             (source / 'var/data').mkdir(parents=True)
             (source / 'var/state').mkdir()
+            (source / 'var/runtime').mkdir()
+            (source / 'var/runtime/active.json').write_text('{"package":"test"}')
             (source / 'home').mkdir()
             (source / 'etc/web.password').write_text('original credential\n')
             (source / 'var/data/session').write_text('persisted session')
             (source / 'home/test').write_text('user home')
-            for name, folder, entries in [('etc', 'etc', ['.']), ('data', 'var', ['data', 'state']), ('home', 'home', ['.'])]:
+            for name, folder, entries in [('etc', 'etc', ['.']), ('data', 'var', ['data', 'state', 'runtime']), ('home', 'home', ['.'])]:
                 with tarfile.open(base / (name + '.tar.gz'), 'w:gz') as archive:
                     for entry in entries:
                         archive.add(source / folder / entry, arcname=entry)
@@ -209,6 +211,7 @@ class PackageTests(unittest.TestCase):
                 restore.restore()
             self.assertEqual((base / 'restored/var/data/session').read_text(), 'persisted session')
             self.assertEqual((base / 'restored/etc/web.password').read_text(), 'original credential\n')
+            self.assertEqual(json.loads((base / 'restored/var/runtime/active.json').read_text()), {'package':'test'})
             with tarfile.open(base / 'etc.tar.gz', 'w:gz') as archive:
                 member = tarfile.TarInfo('../../outside')
                 member.size = 4

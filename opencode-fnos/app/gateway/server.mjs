@@ -4,12 +4,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { pathToFileURL } from 'node:url'
+import { updateAPI } from './update-api.mjs'
 
 const PROTOCOL = JSON.parse(fs.readFileSync(new URL('./protocol.json', import.meta.url), 'utf8'))
 export const PREFIX = PROTOCOL.prefix
-export const UI_SHA256 = 'f68347d1a8ce586d282b50f77b36d7a09d5af54f6a51f966c26159b451e69c3e'
-export const SETTINGS_SHA256 = '44ad5679741f80fa62e4136dac75e87b9d4984aa15e296295f16d899017d923e'
-export const SETTINGS_V2_SHA256 = 'fd440ec2b03d098592610b25e51983c525715665f86ee4c65f54247030bd6e7b'
+export const COMPATIBILITY = JSON.parse(fs.readFileSync(new URL('./compatibility.json', import.meta.url), 'utf8'))
+export const UI_SHA256 = COMPATIBILITY.ui.sha256
+export const SETTINGS_SHA256 = COMPATIBILITY.settings[0].sha256
+export const SETTINGS_V2_SHA256 = COMPATIBILITY.settings[1].sha256
 export function patchSettings(source) {
   const hash = crypto.createHash('sha256').update(source).digest('hex')
   if (![SETTINGS_SHA256, SETTINGS_V2_SHA256].includes(hash)) throw new Error('Unsupported upstream settings UI')
@@ -22,7 +24,9 @@ export function patchSettings(source) {
   }
   const nav = v2 ? 'a(L,r(F.Trigger,{value:"fnos-extensions",children:"扩展"}),null),' : 'r(N,e(C.Trigger,{value:"fnos-extensions",children:"扩展"}),null),'
   const panel = v2 ? 'r(F.Content,{value:"fnos-extensions",class:"settings-v2-panel",get children(){return window.__FNOS_OPENCODE__.extensionsPanel()}})' : 'e(C.Content,{value:"fnos-extensions",class:"no-scrollbar",get children(){return window.__FNOS_OPENCODE__.extensionsPanel()}})'
-  text = text.replace(trigger, nav + trigger).replace(content, content + ',' + panel)
+  const updateNav = nav.replace('fnos-extensions', 'fnos-updates').replace('扩展', '程序更新')
+  const updatePanel = panel.replace('fnos-extensions', 'fnos-updates').replace('extensionsPanel()', 'updatesPanel()')
+  text = text.replace(trigger, nav + updateNav + trigger).replace(content, content + ',' + panel + ',' + updatePanel)
   if (v2) {
     const permission = 'function Xt(e){const t=Ke(),n=ce(),s=E(()=>{const i=e();if(i)return n().session.lineage.peek(i)?.session.directory});return{accepting:E(()=>{const i=e(),c=s();return!i||!c?!1:t.isAutoAccepting(i,c)}),enabled:E(()=>!!s()),set:i=>{const c=e(),l=s();if(!(!c||!l)){if(i)return t.enableAutoAccept(c,l);t.disableAutoAccept(c,l)}}}}'
     if (text.split(permission).length !== 2) throw new Error('Upstream adapter anchor changed: automatic permission controller')
@@ -79,7 +83,7 @@ export function adaptHTML(source) {
 export function createGateway({ port, username, password, version, bootstrap }) {
   const authorization = 'Basic ' + Buffer.from(username + ':' + password).toString('base64')
   let patched
-  let entryPath = '/assets/index-BkjnPp3h.js'
+  let entryPath = COMPATIBILITY.entry
   let webVersion, metadataRequest
   async function metadata() {
     metadataRequest ||= (async () => {
@@ -109,9 +113,11 @@ export function createGateway({ port, username, password, version, bootstrap }) 
     const upstreamPath = stripPrefix(req.url)
     if (upstreamPath === null) { res.writeHead(404); res.end(); return }
     if (!admin(req)) { res.writeHead(403, {'Content-Type':'text/plain; charset=utf-8'}); res.end('仅飞牛管理员可使用此应用入口。'); return }
-    if (['/_fnos/extensions.js', '/_fnos/window-theme.js'].includes(upstreamPath)) {
+    if (upstreamPath.startsWith('/_fnos/update/')) {await updateAPI(req,res,upstreamPath);return}
+    if (['/_fnos/extensions.js', '/_fnos/window-theme.js', '/_fnos/updates.js'].includes(upstreamPath)) {
       res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'})
-      res.end(fs.readFileSync(new URL(upstreamPath.endsWith('/window-theme.js') ? './window-theme.mjs' : './extensions.mjs', import.meta.url))); return
+      const file={'/_fnos/window-theme.js':'./window-theme.mjs','/_fnos/updates.js':'./updates.mjs','/_fnos/extensions.js':'./extensions.mjs'}[upstreamPath]
+      res.end(fs.readFileSync(new URL(file, import.meta.url))); return
     }
     if (upstreamPath === '/_fnos/bootstrap.js') {
       try {
@@ -139,7 +145,7 @@ export function createGateway({ port, username, password, version, bootstrap }) 
       const mime = String(outgoing['content-type'] || '')
       const html = mime.includes('text/html')
       const main = upstreamPath.split('?')[0] === entryPath.split('?')[0]
-      const settings = ['/assets/dialog-settings-C8957_pd.js', '/assets/index-Don-ekPW.js'].includes(upstreamPath.split('?')[0])
+      const settings = COMPATIBILITY.settings.some(item => item.path === upstreamPath.split('?')[0])
       const css = mime.includes('text/css')
       if (!html && !main && !settings && !css) {
         if (mime.includes('text/event-stream')) outgoing['x-accel-buffering'] = 'no'

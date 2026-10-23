@@ -4,17 +4,17 @@ import http from 'node:http'
 import net from 'node:net'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
-import { createGateway, adaptHTML, patchUI, patchSettings, stripPrefix, PREFIX, UI_SHA256 } from '../opencode-fnos/app/gateway/server.mjs'
+import { createGateway, adaptHTML, patchUI, patchSettings, stripPrefix, PREFIX, UI_SHA256, COMPATIBILITY } from '../opencode-fnos/app/gateway/server.mjs'
 
 let embeddedUI
-const fixtureBinary = process.env.OPENCODE_TEST_BINARY || new URL('../opencode-fnos/app/bin/opencode', import.meta.url)
+const fixtureBinary = process.env.OPENCODE_TEST_BINARY || new URL('../.build/opencode-1.19.4-x86_64/app/bin/opencode', import.meta.url)
 function officialUI() {
   if (embeddedUI) return embeddedUI
   const binary = fs.readFileSync(fixtureBinary)
   const start = Buffer.from('const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/angular-html-DgL0RwuR.js","asse')
   let offset = 0
   while ((offset = binary.indexOf(start, offset)) >= 0) {
-    const asset = binary.subarray(offset, offset + 2740171)
+    const asset = binary.subarray(offset, offset + COMPATIBILITY.ui.size)
     if (crypto.createHash('sha256').update(asset).digest('hex') === UI_SHA256) return embeddedUI = asset
     offset++
   }
@@ -40,7 +40,7 @@ test('pinned official embedded UI supports router and truthful version adaptatio
   const prefix = Buffer.from('const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/angular-html-DgL0RwuR.js","asse')
   let offset = 0, found
   while ((offset = binary.indexOf(prefix, offset)) >= 0) {
-    const asset = binary.subarray(offset, offset + 2740171)
+    const asset = binary.subarray(offset, offset + COMPATIBILITY.ui.size)
     if (crypto.createHash('sha256').update(asset).digest('hex') === UI_SHA256) { found = asset; break }
     offset++
   }
@@ -49,19 +49,19 @@ test('pinned official embedded UI supports router and truthful version adaptatio
   assert.ok(code.includes('base:window.__FNOS_OPENCODE__.prefix'))
   assert.ok(code.includes('ll=()=>window.__FNOS_OPENCODE__.routeLocation(ag().location)'))
   assert.ok(code.includes('Btt={version:window.__FNOS_OPENCODE__.displayVersion}'))
-  assert.ok(code.includes('const qtt="1.18.35"'), 'Do not falsify the upstream UI version')
+  assert.ok(code.includes('const qtt="1.19.3"'), 'Do not falsify the upstream UI version')
   assert.throws(() => patchUI(Buffer.from('different build')), /Unsupported/)
 })
 
 test('official settings gain a real extensions tab with a pinned compatibility check',()=>{
  const binary=fs.readFileSync(fixtureBinary)
- const prefix=Buffer.from("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/index-Don-ekPW.js\",\"assets/index-Bk")
+ const prefix=Buffer.from("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/index-C9CPzbQq.js\",\"assets/index-BV")
  const offset=binary.indexOf(prefix)
  assert.ok(offset>=0)
  const code=patchSettings(binary.subarray(offset,offset+33910)).toString()
  assert.ok(code.includes('value:"fnos-extensions",children:"扩展"'))
  assert.ok(code.includes('return window.__FNOS_OPENCODE__.extensionsPanel()'))
- const v2prefix=Buffer.from("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/dialog-settings-C8957_pd.js\",\"asset")
+ const v2prefix=Buffer.from("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/dialog-settings-DVVNnr0F.js\",\"asset")
  const v2offset=binary.indexOf(v2prefix)
  assert.ok(v2offset>=0)
  const v2=patchSettings(binary.subarray(v2offset,v2offset+60149)).toString()
@@ -134,7 +134,7 @@ test('renamed module entries still require a verified hash and metadata uses rea
  try {
   assert.equal((await fetch(base+'/',{headers})).status,200)
   const boot=await(await fetch(base+'/_fnos/bootstrap.js',{headers})).text()
-  assert.ok(boot.includes('Server 9.8.7 / Web 1.18.35'))
+  assert.ok(boot.includes('Server 9.8.7 / Web 1.19.3'))
   assert.equal((await fetch(base+'/assets/index-renamed.js',{headers})).status,200)
   assert.equal((await fetch(base+'/assets/index-lazy.js',{headers})).status,200)
   broken=true

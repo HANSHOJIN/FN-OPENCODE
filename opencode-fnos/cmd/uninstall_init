@@ -1,6 +1,12 @@
 #!/bin/bash
 source "$TRIM_APPDEST/lib/common.sh"
 prepare
+if [[ -f "$TRIM_PKGVAR/runtime/status.json" ]]; then
+ python3 - "$TRIM_PKGVAR/runtime/status.json" <<'PY' || fail '正在执行独立程序更新，请等待完成后再卸载。'
+import json,sys
+sys.exit(0 if json.load(open(sys.argv[1]))['phase'] in ('idle','complete','failed') else 1)
+PY
+fi
 bash "$(dirname "$0")/main" stop
 if [[ ${wizard_keep_data:-true} == true ]]; then
  load_settings
@@ -10,7 +16,9 @@ if [[ ${wizard_keep_data:-true} == true ]]; then
  mkdir -p "$temp"
  trap 'rm -f "$temp/etc.tar.gz" "$temp/data.tar.gz" "$temp/home.tar.gz"; rmdir "$temp" 2>/dev/null || true' EXIT
  tar -czf "$temp/etc.tar.gz" -C "$TRIM_PKGETC" .
- tar -czf "$temp/data.tar.gz" -C "$TRIM_PKGVAR" data state
+ private=(data state)
+ [[ ! -d "$TRIM_PKGVAR/runtime" ]] || private+=(runtime)
+ tar -czf "$temp/data.tar.gz" -C "$TRIM_PKGVAR" "${private[@]}"
  tar -czf "$temp/home.tar.gz" -C "$TRIM_PKGHOME" .
  tar -cf - -C "$temp" etc.tar.gz data.tar.gz home.tar.gz | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 -pass "file:$TRIM_PKGETC/web.password" -out "$backup.new"
  mv "$backup.new" "$backup"

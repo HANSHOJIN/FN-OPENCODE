@@ -33,7 +33,7 @@ def restore():
             with tarfile.open(folder / name) as archive:
                 for member in archive:
                     tarfile.data_filter(member, str(expected[name]))
-                    if name == 'data.tar.gz' and Path(member.name).parts[0] not in ('data', 'state'):
+                    if name == 'data.tar.gz' and Path(member.name).parts[0] not in ('data', 'state', 'runtime'):
                         raise SystemExit('Unexpected data archive path')
         for name, destination in expected.items():
             with tarfile.open(folder / name) as archive:

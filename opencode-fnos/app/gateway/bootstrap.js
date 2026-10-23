@@ -71,6 +71,12 @@
     import(prefix + '/_fnos/extensions.js').then(module => module.mount(root)).catch(() => { root.textContent = '扩展页面加载失败，请重新打开设置。' })
     return root
   }
+  window.__FNOS_OPENCODE__.updatesPanel = () => {
+    const root = document.createElement('div')
+    root.textContent = '正在加载程序更新…'
+    import(prefix + '/_fnos/updates.js').then(module => module.mount(root)).catch(() => { root.textContent = '更新页面加载失败，请重新打开设置。' })
+    return root
+  }
   const map = (input) => {
     const url = new URL(input, location.href)
     if (url.host === location.host && !url.pathname.startsWith(prefix + '/') && url.pathname !== prefix) {

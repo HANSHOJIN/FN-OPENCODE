@@ -1,0 +1,10 @@
+{
+  "server": "1.19.4",
+  "web": "1.19.3",
+  "entry": "/assets/index-BVEDUzgq.js",
+  "ui": {"sha256": "521b103de4415f7ba14efb9fc8a9db50d2d511d6e4919a4850f4c4ec6fe486b2", "size": 2738111},
+  "settings": [
+    {"path": "/assets/dialog-settings-DVVNnr0F.js", "sha256": "c4418ca0563e1e806d71151561976627d1606b007020971a67d64f2a8e6d1420", "size": 33910},
+    {"path": "/assets/index-C9CPzbQq.js", "sha256": "80330c7e947a90bca56693fd2d3385e48a8d04a0ac6c75db2e5a7b8e46eb6d1f", "size": 60149}
+  ]
+}

@@ -6,14 +6,14 @@
 
 本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.0-13/OpenCode-fnOS-1.19.0-13-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
+[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 当前版本：[1.19.0-13](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.0-13)，支持 fnOS x86_64。
+> 当前版本：[1.19.4-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-1)，提供 x86_64 与 ARM64 安装包，ARM64 为实验版。
 
 | 安装包 | 验证状态 | 下载 |
 | --- | --- | --- |
-| x86_64 | 已完成飞牛实机测试 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.0-13/OpenCode-fnOS-1.19.0-13-x86_64.fpk) |
-| ARM64 | 实验版，未经 ARM 真机验证 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.0-13/OpenCode-fnOS-1.19.0-13-arm64.fpk) |
+| x86_64 | 已完成飞牛实机测试 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-x86_64.fpk) |
+| ARM64 | 实验版，未经 ARM 真机验证 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-arm64.fpk) |
 
 ![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
 
@@ -76,12 +76,30 @@
 
 扩展页提供配置和查看功能，尚不包含插件市场、技能上传安装或 MCP OAuth 图形引导。技能文件安装后可重启应用，再刷新列表。
 
+## 程序更新（1.19.4-1 起）
+
+安装本次飞牛新版后，在飞牛桌面打开 OpenCode，进入 **设置 → 程序更新**，点击“检查官方更新”，选择版本后更新。程序会下载对应架构的官方文件、校验文件、在临时实例检查界面与接口，再备份配置和会话并切换版本。启动失败会自动恢复旧版及其数据。
+
+也可以在聊天中让 OpenCode 检查或更新程序，它可调用内置命令：
+
+```bash
+fnos-opencode-update check
+fnos-opencode-update apply 1.19.4
+fnos-opencode-update status
+fnos-opencode-update rollback
+```
+
+更新命令先提交后台任务，状态显示 `complete` 才代表完成。更新与回退会中断当前生成和终端，之后请重新打开或刷新窗口。回退会恢复更新前的配置与会话数据，更新后新增的会话变更不在恢复后的实例中；备份会保留，暂不自动清理。
+
+如果官方新版改变了界面或接口，检查会拒绝更新，当前版本继续运行。这时请等待本项目发布新版 [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases)，再到飞牛应用中心升级。安装新版 FPK 后，以 FPK 自带的官方程序为准。ARM64 仍需自行验证实际设备上的运行情况。
+
+
 ## 数据与升级
 
 项目文件位于 `OpenCode/projects` 共享目录；应用配置、授权信息和会话数据由 fnOS 应用数据目录保存。
 
 - 升级前建议备份重要项目和应用数据。
-- OpenCode 随 FPK 更新，应用内自更新已禁用。
+- OpenCode 可随 FPK 更新。1.19.4-1 起也可通过飞牛设置里的“程序更新”独立更新官方程序；官方原生自更新仍禁用，避免绕过兼容检查。
 - 卸载时可选择加密导出私有数据，解密密码为卸载时使用的 Web 密码，请妥善保管。
 - 旧导出文件始终使用导出时的旧密码解密；修改 Web 密码不会更改已有备份的加密密码。
 - 升级恢复点不会自动删除，确认不再需要后可手动清理，避免长期占用空间。
@@ -122,7 +140,7 @@ python scripts/build.py
 也可以指定上游版本、架构和适配修订号：
 
 ```bash
-python scripts/build.py 1.19.0 x86_64 --revision 13
+python scripts/build.py 1.19.4 x86_64 --revision 1
 ```
 
 安装包检查需要 Bash；Windows 可使用 Git for Windows 提供的 Bash：
@@ -134,14 +152,10 @@ python scripts/verify.py
 网关与授权适配的回归检查需要 Node.js：
 
 ```bash
-node --test scripts/console-oauth.test.mjs scripts/gateway.test.mjs scripts/gateway-fetch.test.mjs
+node --test scripts/console-oauth.test.mjs scripts/gateway.test.mjs scripts/gateway-fetch.test.mjs scripts/update-api.test.mjs
+python scripts/runtime.test.py
 ```
 
-### 如何更新 OpenCode
-
-OpenCode 会随本项目的 FPK 安装包一起更新。需要升级时，请从 [Releases](https://github.com/HANSHOJIN/FN-OPENCODE/releases) 下载适合设备架构的新版安装包，在飞牛应用中心安装升级即可。
-
-飞牛版需要适配 OpenCode 的界面与功能，因此可能晚于官方版本发布。请使用本项目提供的安装包，手动替换其中的 OpenCode 程序可能导致界面无法打开或部分功能异常。
 
 ## 致谢与许可
 
@@ -150,4 +164,4 @@ OpenCode 会随本项目的 FPK 安装包一起更新。需要升级时，请从
 
 本项目遵循 [MIT License](opencode-fnos/LICENSE)，保留上游版权声明。OpenCode 名称及标识归其各自权利人所有。
 
-图标矢量素材：[SVG](assets/opencode-fnos.svg)。安装包继续使用 fnOS 要求的 PNG 尺寸。
+图标使用 [官方 1.19.4 正式版素材](https://github.com/anomalyco/opencode/tree/v1.19.4/packages/desktop/icons/prod)，按 fnOS 要求提供 PNG 尺寸；[官方矢量图标](assets/opencode-fnos.svg)一并保留。

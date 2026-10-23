@@ -1,5 +1,5 @@
 appname=opencode-fnos
-version=1.19.0-13
+version=1.19.4-1
 display_name=OpenCode
 desc=在飞牛桌面中使用 OpenCode，为 NAS 项目提供 AI 编程、终端与文件操作。
 platform=x86

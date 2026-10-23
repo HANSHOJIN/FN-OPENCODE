@@ -9,7 +9,10 @@ alive() {
  read -r pid birth < "$pidfile"
  [[ $pid =~ ^[0-9]+$ && $pid -gt 1 && $birth =~ ^[0-9]+$ ]] || return 1
  [[ -r /proc/$pid/stat ]] || return 1
- [[ $(readlink -f "/proc/$pid/exe") == "$(readlink -f "$TRIM_APPDEST/bin/opencode")" ]] || return 1
+ if [[ $(readlink -f "/proc/$pid/exe") != "$(readlink -f "$TRIM_APPDEST/bin/opencode")" ]]; then
+  [[ $(readlink -f "/proc/$pid/exe") == "$(readlink -f "$(command -v python3)")" ]] || return 1
+  tr '\0' '\n' < "/proc/$pid/cmdline" | grep -Fxq "$TRIM_APPDEST/lib/runtime.py" || return 1
+ fi
  local statline rest
  statline=$(cat "/proc/$pid/stat"); rest=${statline##*) }
  [[ $(awk '{print $20}' <<< "$rest") == "$birth" ]] && kill -0 "$pid" 2>/dev/null
@@ -33,7 +36,7 @@ case ${1:-} in
   pid=$!
   for ((i=0;i<10;i++)); do
    [[ -r /proc/$pid/stat ]] || break
-   [[ $(readlink -f "/proc/$pid/exe") != "$(readlink -f "$TRIM_APPDEST/bin/opencode")" ]] || break
+   if tr '\0' '\n' < "/proc/$pid/cmdline" | grep -Fxq "$TRIM_APPDEST/lib/runtime.py"; then break; fi
    sleep 1
   done
   if [[ -r /proc/$pid/stat ]]; then
