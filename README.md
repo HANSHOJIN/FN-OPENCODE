@@ -8,12 +8,12 @@
 
 [直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 当前版本：[1.19.4-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-1)，提供 x86_64 与 ARM64 安装包，ARM64 为实验版。
+> 当前版本：[1.19.4-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-1)，提供 x86_64 与 ARM64 安装包。
 
 | 安装包 | 验证状态 | 下载 |
 | --- | --- | --- |
 | x86_64 | 已完成飞牛实机测试 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-x86_64.fpk) |
-| ARM64 | 实验版，未经 ARM 真机验证 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-arm64.fpk) |
+| ARM64 | 用户实机确认安装、启动及首页显示正常 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-arm64.fpk) |
 
 ![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
 
@@ -29,7 +29,7 @@
 
 ## 环境要求
 
-- 飞牛 fnOS，**x86_64** 或 **ARM64** 架构，请下载对应架构的安装包。ARM64 为实验版，已通过静态和打包检查，尚未验证 ARM 飞牛上的实际安装、运行依赖和服务运行情况。
+- 飞牛 fnOS，**x86_64** 或 **ARM64** 架构，请下载对应架构的安装包。ARM64 已由用户实机确认安装成功、服务启动及首页显示正常；模型对话、终端和程序更新／回退尚未收到 ARM 实机验证反馈。
 - 使用飞牛管理员账号打开应用。
 - NAS 能访问所选模型供应商；本地模型服务需提供 NAS 可访问的地址。
 
@@ -91,7 +91,7 @@ fnos-opencode-update rollback
 
 更新命令先提交后台任务，状态显示 `complete` 才代表完成。更新与回退会中断当前生成和终端，之后请重新打开或刷新窗口。回退会恢复更新前的配置与会话数据，更新后新增的会话变更不在恢复后的实例中；备份会保留，暂不自动清理。
 
-如果官方新版改变了界面或接口，检查会拒绝更新，当前版本继续运行。这时请等待本项目发布新版 [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases)，再到飞牛应用中心升级。安装新版 FPK 后，以 FPK 自带的官方程序为准。ARM64 仍需自行验证实际设备上的运行情况。
+如果官方新版改变了界面或接口，检查会拒绝更新，当前版本继续运行。这时请等待本项目发布新版 [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases)，再到飞牛应用中心升级。安装新版 FPK 后，以 FPK 自带的官方程序为准。ARM64 的程序更新与回退仍待实机验证。
 
 
 ## 数据与升级
