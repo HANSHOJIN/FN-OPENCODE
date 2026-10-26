@@ -6,14 +6,14 @@
 
 本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
+[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-2/OpenCode-fnOS-1.19.4-2-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 当前版本：[1.19.4-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-1)，提供 x86_64 与 ARM64 安装包。
+> 当前版本：[1.19.4-2](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-2)，提供 x86_64 与 ARM64 安装包。
 
 | 安装包 | 验证状态 | 下载 |
 | --- | --- | --- |
-| x86_64 | 已完成飞牛实机测试 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-x86_64.fpk) |
-| ARM64 | 用户实机确认安装、启动及首页显示正常 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-1/OpenCode-fnOS-1.19.4-1-arm64.fpk) |
+| x86_64 | 已完成飞牛实机测试 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-2/OpenCode-fnOS-1.19.4-2-x86_64.fpk) |
+| ARM64 | 上版已实机安装运行，本版通过打包与适配回归检查 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-2/OpenCode-fnOS-1.19.4-2-arm64.fpk) |
 
 ![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
 
@@ -99,7 +99,7 @@ fnos-opencode-update rollback
 项目文件位于 `OpenCode/projects` 共享目录；应用配置、授权信息和会话数据由 fnOS 应用数据目录保存。
 
 - 升级前建议备份重要项目和应用数据。
-- OpenCode 可随 FPK 更新。1.19.4-1 起也可通过飞牛设置里的“程序更新”独立更新官方程序；官方原生自更新仍禁用，避免绕过兼容检查。
+- OpenCode 可随 FPK 更新。1.19.4-2 起也可通过飞牛设置里的“程序更新”独立更新官方程序；官方原生自更新仍禁用，避免绕过兼容检查。
 - 卸载时可选择加密导出私有数据，解密密码为卸载时使用的 Web 密码，请妥善保管。
 - 旧导出文件始终使用导出时的旧密码解密；修改 Web 密码不会更改已有备份的加密密码。
 - 升级恢复点不会自动删除，确认不再需要后可手动清理，避免长期占用空间。
@@ -140,7 +140,7 @@ python scripts/build.py
 也可以指定上游版本、架构和适配修订号：
 
 ```bash
-python scripts/build.py 1.19.4 x86_64 --revision 1
+python scripts/build.py 1.19.4 x86_64 --revision 2
 ```
 
 安装包检查需要 Bash；Windows 可使用 Git for Windows 提供的 Bash：
@@ -152,7 +152,7 @@ python scripts/verify.py
 网关与授权适配的回归检查需要 Node.js：
 
 ```bash
-node --test scripts/console-oauth.test.mjs scripts/gateway.test.mjs scripts/gateway-fetch.test.mjs scripts/update-api.test.mjs
+node --test scripts/console-oauth.test.mjs scripts/gateway.test.mjs scripts/gateway-fetch.test.mjs scripts/update-api.test.mjs scripts/attachment-digest.test.mjs
 python scripts/runtime.test.py
 ```
 

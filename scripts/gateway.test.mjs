@@ -4,6 +4,8 @@ import http from 'node:http'
 import net from 'node:net'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
+import vm from 'node:vm'
+import { attachmentDigest } from '../opencode-fnos/app/gateway/attachment-digest.mjs'
 import { createGateway, adaptHTML, patchUI, patchSettings, stripPrefix, PREFIX, UI_SHA256, COMPATIBILITY } from '../opencode-fnos/app/gateway/server.mjs'
 
 let embeddedUI
@@ -53,6 +55,27 @@ test('pinned official embedded UI supports router and truthful version adaptatio
   assert.throws(() => patchUI(Buffer.from('different build')), /Unsupported/)
 })
 
+test('both official attachment paths work without Web Crypto on HTTP', async () => {
+  const original = officialUI().toString()
+  const code = patchUI(officialUI()).toString()
+  const file = new File([Buffer.alloc(11264, 97)], '项目移交.MD', {type:'text/markdown'})
+  const context = {
+    window: {__FNOS_OPENCODE__:{attachmentDigest: blob => attachmentDigest(blob, {})}},
+    Uint8Array, URL,
+  }
+  for (const name of ['yX', 'qze']) {
+    const pattern = new RegExp('async function ' + name + '\\(e\\)\\{.*?\\}(?=async function |const |function )')
+    const before = original.match(pattern)?.[0]
+    const after = code.match(pattern)?.[0]
+    assert.ok(before && after, 'official attachment function remains discoverable: ' + name)
+    await assert.rejects(vm.runInNewContext('(' + before + ')', context)(file), /crypto/)
+    const result = await vm.runInNewContext('(' + after + ')', context)(file)
+    const expected = crypto.createHash('sha256').update(Buffer.alloc(11264, 97)).digest('hex')
+    assert.equal(typeof result === 'string' ? result : result.id, expected)
+    if (typeof result !== 'string') URL.revokeObjectURL(result.url)
+  }
+})
+
 test('official settings gain a real extensions tab with a pinned compatibility check',()=>{
  const binary=fs.readFileSync(fixtureBinary)
  const prefix=Buffer.from("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/index-C9CPzbQq.js\",\"assets/index-BV")
@@ -100,6 +123,12 @@ test('HTTP, SSE and WebSocket forwarding preserve auth and stream bytes', async 
     const page = await (await fetch(origin + PREFIX + '/', {headers})).text()
     assert.ok(page.includes(`src="${PREFIX}/_fnos/bootstrap.js"`))
     assert.ok(page.includes(`src="${PREFIX}/assets/index-test.js"`))
+    const digestPath = origin + PREFIX + '/_fnos/attachment-digest.js'
+    assert.equal((await fetch(digestPath)).status, 403)
+    const digestModule = await fetch(digestPath, {headers})
+    assert.equal(digestModule.status, 200)
+    assert.match(digestModule.headers.get('content-type'), /javascript/)
+    assert.ok((await digestModule.text()).includes('export async function attachmentDigest'))
     const controller = new AbortController()
     const stream = await fetch(origin + PREFIX + '/global/event',{headers,signal:controller.signal})
     assert.equal(stream.headers.get('x-accel-buffering'),'no')

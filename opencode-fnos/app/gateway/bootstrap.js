@@ -1,6 +1,10 @@
 /* Runs before upstream modules; keep upstream router and requests under fnOS. */
 (() => {
   const prefix = window.__FNOS_OPENCODE__.prefix
+  window.__FNOS_OPENCODE__.attachmentDigest = async blob => {
+    const module = await import(prefix + '/_fnos/attachment-digest.js')
+    return module.attachmentDigest(blob)
+  }
   // The upstream settings controller only works for persisted sessions. This
   // controller exposes the native server's global default policy on any page.
   window.__FNOS_OPENCODE__.permissionController = signal => {

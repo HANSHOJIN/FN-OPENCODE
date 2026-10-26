@@ -42,6 +42,8 @@ export function patchUI(source) {
   const version = 'Btt={version:qtt}'
   const location = 'll=()=>ag().location'
   const project = 'm={...h?s.data.project.find(p=>p.id===h):s.data.project.find(p=>p.worktree===u.worktree),...u}'
+  const attachment = 'crypto.subtle.digest("SHA-256",await e.arrayBuffer())'
+  if (text.split(attachment).length !== 3) throw new Error('Upstream adapter anchor changed: attachment hashing')
   for (const [name, needle] of Object.entries({router, server, version, location, project})) {
     if (text.split(needle).length !== 2) throw new Error('Upstream adapter anchor changed: ' + name)
   }
@@ -51,6 +53,7 @@ export function patchUI(source) {
     .replace(location, 'll=()=>window.__FNOS_OPENCODE__.routeLocation(ag().location)')
     .replace(project, 'm=window.__FNOS_OPENCODE__.projectMetadata({...h?s.data.project.find(p=>p.id===h):s.data.project.find(p=>p.worktree===u.worktree),...u},e)')
     .replaceAll('OpenCode Desktop', 'OpenCode for fnOS')
+    .replaceAll(attachment, 'window.__FNOS_OPENCODE__.attachmentDigest(e)')
   return Buffer.from(text)
 }
 export function stripPrefix(url) {
@@ -114,9 +117,9 @@ export function createGateway({ port, username, password, version, bootstrap }) 
     if (upstreamPath === null) { res.writeHead(404); res.end(); return }
     if (!admin(req)) { res.writeHead(403, {'Content-Type':'text/plain; charset=utf-8'}); res.end('仅飞牛管理员可使用此应用入口。'); return }
     if (upstreamPath.startsWith('/_fnos/update/')) {await updateAPI(req,res,upstreamPath);return}
-    if (['/_fnos/extensions.js', '/_fnos/window-theme.js', '/_fnos/updates.js'].includes(upstreamPath)) {
+    if (['/_fnos/extensions.js', '/_fnos/window-theme.js', '/_fnos/updates.js', '/_fnos/attachment-digest.js'].includes(upstreamPath)) {
       res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'})
-      const file={'/_fnos/window-theme.js':'./window-theme.mjs','/_fnos/updates.js':'./updates.mjs','/_fnos/extensions.js':'./extensions.mjs'}[upstreamPath]
+      const file={'/_fnos/window-theme.js':'./window-theme.mjs','/_fnos/updates.js':'./updates.mjs','/_fnos/extensions.js':'./extensions.mjs','/_fnos/attachment-digest.js':'./attachment-digest.mjs'}[upstreamPath]
       res.end(fs.readFileSync(new URL(file, import.meta.url))); return
     }
     if (upstreamPath === '/_fnos/bootstrap.js') {

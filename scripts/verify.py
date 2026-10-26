@@ -26,7 +26,7 @@ def shellpath(path):
 
 class PackageTests(unittest.TestCase):
     def test_package_permissions_and_contract(self):
-        artifact = ROOT / f'dist/OpenCode-fnOS-1.19.4-1-{ARCH}.fpk'
+        artifact = ROOT / f'dist/OpenCode-fnOS-1.19.4-2-{ARCH}.fpk'
         from build import validate_fpk
         validate_fpk(artifact)
         evidence = json.loads(artifact.with_suffix('.build.json').read_text())
