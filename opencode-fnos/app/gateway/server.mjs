@@ -119,8 +119,16 @@ export function createGateway({ port, username, password, version, bootstrap }) 
       const settings = COMPATIBILITY.settings.some(item => item.path === upstreamPath.split('?')[0])
       const css = mime.includes('text/css')
       if (!html && !main && !settings && !css) {
-        if (mime.includes('text/event-stream')) outgoing['x-accel-buffering'] = 'no'
-        res.writeHead(response.statusCode, outgoing); res.flushHeaders(); response.pipe(res); return
+        const events = mime.includes('text/event-stream')
+        if (events) {
+          outgoing['x-accel-buffering'] = 'no'
+          outgoing['cache-control'] = 'no-store, no-transform'
+        }
+        res.writeHead(response.statusCode, outgoing); res.flushHeaders()
+        // SSE comments are ignored by the native parser. Prime buffering mobile
+        // relays without forging server.connected or changing actual events.
+        if (events && response.statusCode === 200) res.write(':' + ' '.repeat(16384) + '\n\n')
+        response.pipe(res); return
       }
       const chunks = []; let bytes = 0
       response.on('data', chunk => { bytes += chunk.length; if (bytes > 8*1024*1024) response.destroy(new Error('UI response too large')); else chunks.push(chunk) })

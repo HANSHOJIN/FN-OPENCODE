@@ -25,7 +25,13 @@ export function resource(source, compatibility) {
   const asset = compatibility.settings.find(item => item.sha256 === digest)
   if (!asset) throw new Error('Unsupported upstream settings UI')
   let text = source.toString('utf8')
-  if (asset.role === 'router') {
+  if (asset.role === 'connection') {
+    // A WAN/mobile relay can take longer than upstream's two-second deadline.
+    // Keep the native server.connected check; never infer a live stream from HTTP 200.
+    text = change(text, 'var T=2e3,E=1e3,te=50', 'var T=30e3,E=1e3,te=50', 'event stream connection deadline')
+    text = change(text, 'c({status:`connected`,attempt:0,error:void 0})', 'c({status:`connected`,attempt:0,error:void 0}),window.__FNOS_OPENCODE__.connectionStatus(`connected`)', 'clear connection failure notice')
+    text = change(text, 'c({status:`reconnecting`,attempt:r,error:s})', 'c({status:`reconnecting`,attempt:r,error:s}),window.__FNOS_OPENCODE__.connectionStatus(`reconnecting`,s,r)', 'report connection failure')
+  } else if (asset.role === 'router') {
     text = change(text, 'yn=()=>_n().location', 'yn=()=>window.__FNOS_OPENCODE__.routeLocation(_n().location)', 'application route location')
   } else if (asset.role === 'projects') {
     text = change(text, 'e.store.usedProjectIDs[e.scope()]??[]', 'e.store.usedProjectIDs[e.scope()]??window.__FNOS_OPENCODE__.storedProjectIDs(e.scope())', 'project recovery for a new browser store')

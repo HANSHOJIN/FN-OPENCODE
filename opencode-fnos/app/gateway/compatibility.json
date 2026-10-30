@@ -8,6 +8,12 @@
   },
   "settings": [
     {
+      "path": "/_assets/solid-B3SPth3b.js",
+      "role": "connection",
+      "sha256": "82f09aa65d42e5689fff615d6586482e66583f91f74e75ec015e43befd9f2ef0",
+      "size": 42313
+    },
+    {
       "path": "/_assets/shell-Cwsi8jek.js",
       "role": "settings",
       "sha256": "d342e145ab8a862e4223cc19f7db9e184b15dcca5738727435cd6ccff3cf78bf",

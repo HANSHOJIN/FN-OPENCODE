@@ -12,6 +12,28 @@ function environment(fetcher, extra = {}) {
   return {...context,calls}
 }
 
+test('connection failures become visible after retries and disappear only on a real reconnect', () => {
+  const visible = []
+  const document = {addEventListener() {}, body: {append: node => visible.push(node)}, createElement: () => ({
+    style: {}, setAttribute(key, value) {this[key] = value},
+    replaceChildren(...nodes) {this.children = nodes},
+    remove() {visible.splice(visible.indexOf(this), 1)},
+  })}
+  const env = environment(undefined, {document})
+  const status = env.window.__FNOS_OPENCODE__.connectionStatus
+  status('reconnecting', 'Timed out connecting to server', 1)
+  assert.equal(visible.length, 0)
+  status('reconnecting', 'Timed out connecting to server', 2)
+  assert.equal(visible.length, 1)
+  assert.equal(visible[0].role, 'alert')
+  assert.match(visible[0].children[0].textContent, /Timed out connecting to server/)
+  status('reconnecting', '<script>not html</script>', 3)
+  assert.equal(visible.length, 1)
+  assert.ok(visible[0].children[0].textContent.includes('<script>not html</script>'))
+  status('connected')
+  assert.equal(visible.length, 0)
+})
+
 test('unnamed fnOS global projects use the default label without renaming directories or custom projects',()=>{
  const env=environment(),server={type:'http',http:{url:'http://nas.local/app/opencode-fnos'}}
  const project={id:'global',worktree:'/home/app/.npm',expanded:true}

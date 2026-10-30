@@ -1,6 +1,27 @@
 /* Runs before upstream modules; keep upstream router and requests under fnOS. */
 (() => {
   const prefix = window.__FNOS_OPENCODE__.prefix
+  let connectionNotice
+  window.__FNOS_OPENCODE__.connectionStatus = (status, error, attempt = 0) => {
+    if (status === 'connected') {
+      connectionNotice?.remove()
+      connectionNotice = undefined
+      return
+    }
+    if (attempt < 2 || !document.body) return
+    if (!connectionNotice) {
+      connectionNotice = document.createElement('div')
+      connectionNotice.setAttribute('role', 'alert')
+      connectionNotice.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;z-index:2147483647;padding:12px;border:1px solid #777;border-radius:8px;background:#242424;color:#fff;font:14px sans-serif;white-space:pre-wrap;overflow-wrap:anywhere'
+      document.body.append(connectionNotice)
+    }
+    const message = document.createElement('span')
+    message.textContent = '实时连接尚未建立，会话列表正在等待连接。\n' + String(error || '连接中断').slice(0, 220) + '\n'
+    const retry = document.createElement('button')
+    retry.textContent = '重新连接'
+    retry.onclick = () => window.location.reload()
+    connectionNotice.replaceChildren(message, retry)
+  }
   // Recover the NAS project list when a mobile WebView starts with fresh storage.
   // An explicit saved empty list still wins, so hiding projects stays effective.
   window.__FNOS_OPENCODE__.storedProjectIDs = scope => scope === 'local'

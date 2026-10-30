@@ -58,6 +58,7 @@ test('all native settings and router chunks retain their hash gates', () => {
       for (const tab of ['extensions','projects','workspaces','providers']) assert.ok(code.includes('value:`'+tab+'`'))
     } else if (item.role === 'settings-route') assert.ok(code.includes('"fnos-updates":!0'))
     else if (item.role === 'projects') assert.ok(code.includes('window.__FNOS_OPENCODE__.storedProjectIDs(e.scope())'))
+    else if (item.role === 'connection') assert.ok(code.includes('var T=30e3,E=1e3,te=50'))
     else assert.ok(code.includes('window.__FNOS_OPENCODE__.routeLocation(_n().location)'))
   }
   assert.throws(() => patchSettings(Buffer.from('different build')), /Unsupported/)
@@ -77,6 +78,56 @@ test('fresh browser storage recovers NAS projects while saved choices and other 
   assert.deepEqual([...create({scope:()=>'local',store:state}).used()], [])
   state.usedProjectIDs.local = ['custom-choice']
   assert.deepEqual([...create({scope:()=>'local',store:state}).used()], ['custom-choice'])
+})
+
+test('native connection accepts a delayed real handshake, rejects silence and clears its timers', async () => {
+  const code = patchSettings(officialAsset(COMPATIBILITY.settings.find(a => a.role === 'connection'))).toString()
+  const native = code.slice(code.indexOf('var T=30e3,E=1e3,te=50'), code.indexOf('function j(e,t)'))
+  assert.ok(native.includes('Event stream did not start with server.connected'))
+  const setup = () => {
+    let time = 0, sequence = 0, deliver, signal
+    const timers = new Map(), cleanups = [], notices = []
+    const context = {
+      AbortController, Error, Date: {now: () => time},
+      l: value => [value, next => Object.assign(value, next)],
+      i: callback => callback(), r: callback => cleanups.push(callback),
+      window: {__FNOS_OPENCODE__: {connectionStatus: (...args) => notices.push(args)}},
+      setTimeout: (callback, delay) => {const id = ++sequence; timers.set(id, {at: time + delay, callback}); return id},
+      clearTimeout: id => timers.delete(id),
+    }
+    const create = vm.runInNewContext(native + ';k', context)
+    const api = {event: {subscribe: options => ({[Symbol.asyncIterator]: () => ({next: () => {
+      signal = options.signal
+      return new Promise((resolve, reject) => {
+        deliver = resolve
+        signal.addEventListener('abort', () => reject(signal.reason), {once: true})
+      })
+    }})})}}
+    const connection = create(api, {onEvent() {}})
+    return {connection, notices, timers, deliver: value => deliver(value), aborted: () => signal.aborted,
+      async advance(ms) {
+        time += ms
+        for (const [id, timer] of [...timers]) if (timer.at <= time) {timers.delete(id); timer.callback()}
+        for (let n = 0; n < 20; n++) await Promise.resolve()
+      }, cleanup: () => cleanups.forEach(callback => callback())}
+  }
+  const slow = setup()
+  await slow.advance(2500)
+  assert.equal(slow.aborted(), false, 'A relay taking more than two seconds is still allowed to connect')
+  assert.equal(slow.connection.status(), 'connecting', 'HTTP progress alone must not declare success')
+  slow.deliver({done: false, value: {type: 'server.connected', data: {}}})
+  await slow.advance(0)
+  assert.equal(slow.connection.status(), 'connected')
+  assert.equal(slow.notices.at(-1)[0], 'connected')
+  slow.cleanup(); await slow.advance(0)
+  assert.equal(slow.timers.size, 0)
+  const silent = setup()
+  await silent.advance(30_000)
+  assert.equal(silent.aborted(), true)
+  assert.equal(silent.connection.status(), 'reconnecting')
+  assert.match(silent.notices.at(-1)[1], /Timed out/)
+  silent.cleanup(); await silent.advance(0)
+  assert.equal(silent.timers.size, 0)
 })
 
 test('HTTP, SSE and WebSocket forwarding preserve auth and stream bytes', async () => {
@@ -117,7 +168,12 @@ test('HTTP, SSE and WebSocket forwarding preserve auth and stream bytes', async 
     const controller = new AbortController()
     const stream = await fetch(origin + PREFIX + '/global/event',{headers,signal:controller.signal})
     assert.equal(stream.headers.get('x-accel-buffering'),'no')
-    assert.ok(new TextDecoder().decode((await stream.body.getReader().read()).value).includes('data: first'))
+    assert.match(stream.headers.get('cache-control'), /no-transform/)
+    const reader = stream.body.getReader()
+    let body = ''
+    while (!body.includes('data: first')) body += new TextDecoder().decode((await reader.read()).value)
+    assert.ok(body.startsWith(':' + ' '.repeat(16384) + '\n\n'))
+    assert.ok(!body.includes('server.connected'), 'The gateway must never fabricate a connected event')
     controller.abort()
     await new Promise((resolve,reject) => {
       const socket = net.connect(gateway.address().port,'127.0.0.1', () => socket.write(`GET ${PREFIX}/pty/test/connect?ticket=abc HTTP/1.1\r\nHost: localhost\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nX-Trim-Userid: 1000\r\nX-Trim-Isadmin: true\r\n\r\n`))
