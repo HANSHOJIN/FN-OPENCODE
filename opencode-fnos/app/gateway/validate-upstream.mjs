@@ -4,7 +4,7 @@ import {adaptHTML, patchUI, patchSettings, COMPATIBILITY} from './server.mjs'
 
 export async function validate(port, etc, version) {
   const read = name => fs.readFileSync(path.join(etc, 'web.' + name), 'utf8').replace(/\n$/, '')
-  const authorization = 'Basic ' + Buffer.from(read('username') + ':' + read('password')).toString('base64')
+  const authorization = 'Basic ' + Buffer.from('opencode:' + read('password')).toString('base64')
   const base = `http://127.0.0.1:${port}`
   const get = async url => {
     const response = await fetch(base + url, {headers:{authorization},signal:AbortSignal.timeout(15000),redirect:'error'})
@@ -21,29 +21,29 @@ export async function validate(port, etc, version) {
   let healthy = false
   for (let i=0;i<30;i++) {
     try {
-      const health=JSON.parse((await get('/global/health')).toString())
-      if (health.healthy !== true || health.version !== version) throw new Error('Candidate version mismatch')
+      const health=JSON.parse((await get('/api/info')).toString())
+      if (health.version !== version || !Number.isInteger(health.pid) || health.pid <= 0) throw new Error('Candidate version mismatch')
       healthy=true;break
     } catch {await new Promise(resolve=>setTimeout(resolve,500))}
   }
   if (!healthy) throw new Error('Candidate unavailable')
   console.error('Preflight: health and version verified')
-  const denied=await fetch(base+'/global/health',{signal:AbortSignal.timeout(5000),redirect:'error'})
+  const denied=await fetch(base+'/api/info',{signal:AbortSignal.timeout(5000),redirect:'error'})
   await denied.body?.cancel()
   if(denied.status!==401)throw new Error('Candidate no longer enforces Web authentication')
   console.error('Preflight: authentication verified')
   const html=adaptHTML((await get('/')).toString())
   patchUI(await get(html.entry))
   for (const item of COMPATIBILITY.settings) patchSettings(await get(item.path))
-  const config=JSON.parse((await get('/global/config')).toString())
-  if (!config || typeof config!=='object' || Array.isArray(config)) throw new Error('Candidate configuration incompatible')
+  const config=JSON.parse((await get('/api/config')).toString())
+  if (!Array.isArray(config)) throw new Error('Candidate configuration incompatible')
   console.error('Preflight: UI, settings and configuration verified')
-  const shells=JSON.parse((await get('/pty/shells')).toString())
+  const shells=JSON.parse((await get('/api/config/shell')).toString())
   if(!Array.isArray(shells))throw new Error('Candidate terminal interface incompatible')
   console.error('Preflight: terminal listing verified')
   const abort=new AbortController(), timer=setTimeout(()=>abort.abort(),10000)
   try{
-    const event=await fetch(base+'/global/event',{headers:{authorization},signal:abort.signal,redirect:'error'})
+    const event=await fetch(base+'/api/event',{headers:{authorization},signal:abort.signal,redirect:'error'})
     if(!event.ok || !String(event.headers.get('content-type')).includes('text/event-stream'))throw new Error('Candidate event stream incompatible')
     const reader=event.body.getReader()
     try{const first=await reader.read();if(first.done || !first.value?.length)throw new Error('Candidate event stream empty')}

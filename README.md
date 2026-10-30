@@ -6,30 +6,33 @@
 
 本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-2/OpenCode-fnOS-1.19.4-2-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
+[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.2-1/OpenCode-fnOS-2.2.2-1-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 当前版本：[1.19.4-2](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-2)，提供 x86_64 与 ARM64 安装包。
+> 当前版本：[2.2.2-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.2.2-1)，提供 x86_64 与 ARM64 安装包。
 
 | 安装包 | 验证状态 | 下载 |
 | --- | --- | --- |
-| x86_64 | 已完成飞牛实机测试 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-2/OpenCode-fnOS-1.19.4-2-x86_64.fpk) |
-| ARM64 | 上版已实机安装运行，本版通过打包与适配回归检查 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-2/OpenCode-fnOS-1.19.4-2-arm64.fpk) |
+| x86_64 | NAS 隔离运行与浏览器检查通过 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.2-1/OpenCode-fnOS-2.2.2-1-x86_64.fpk) |
+| ARM64 | 本版通过打包与架构检查 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.2-1/OpenCode-fnOS-2.2.2-1-arm64.fpk) |
 
 ![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
 
 ## 功能
 
+以下为 2.2.2 系列的使用说明。
+
 - **飞牛桌面集成**：桌面窗口、深浅色标题栏与紧凑布局。
 - **AI 编程**：使用 OpenCode 的会话、项目、文件操作和终端功能。
-- **供应商连接**：保留 API Key 连接，补充 OpenCode Console / Go 账号授权。
-- **扩展配置**：管理 MCP 和插件配置，查看已安装技能。
-- **自动审批**：在通用设置中切换服务器的全局默认审批策略，首页和新会话草稿也可操作；项目单独配置的权限规则优先。
+- **供应商连接**：使用官方 API Key 和 OpenCode Console / Go 账号授权。
+- **官方设置菜单**：提供偏好设置、外观、通知、项目、工作区、扩展及关于页面。
+- **自动审批**：使用官方默认自动审批功能，项目可以单独设置权限。
+- **项目记忆**：NAS 保留项目目录；新浏览器或手机 WebView 没有本地记录时，可恢复已保存的项目。默认工作目录为共享目录下的“默认项目”。
 - **数据持久化**：共享目录保存项目，应用数据目录保存配置、授权信息和会话。
-- **两种访问方式**：从飞牛桌面打开（默认端口 `5666`），也可在浏览器独立访问 `http://NAS地址:4096`，使用安装时设置的 Web 账号密码登录；端口以实际配置为准。
+- **两种访问方式**：从飞牛桌面打开（默认端口 `5666`），也可在浏览器独立访问 `http://NAS地址:4096`，使用安装时设置的 Web 密码登录；2.x 的 HTTP 用户名固定为 `opencode`，端口以实际配置为准。
 
 ## 环境要求
 
-- 飞牛 fnOS，**x86_64** 或 **ARM64** 架构，请下载对应架构的安装包。ARM64 已由用户实机确认安装成功、服务启动及首页显示正常；模型对话、终端和程序更新／回退尚未收到 ARM 实机验证反馈。
+- 飞牛 fnOS，**x86_64** 或 **ARM64** 架构，请下载对应架构的安装包。旧版 ARM64 已由用户实机确认安装运行；本次 2.2.2 的 ARM64 包已通过打包与架构检查，尚无该版本的实机反馈。
 - 使用飞牛管理员账号打开应用。
 - NAS 能访问所选模型供应商；本地模型服务需提供 NAS 可访问的地址。
 
@@ -39,7 +42,7 @@
 
 1. 从上方表格下载对应架构的 FPK 安装包。文件名中的 `x86_64` 或 `arm64` 应与设备架构一致；`Source code` 是源码归档，不能用于飞牛安装。
 2. 在飞牛应用中心选择手动安装，上传 FPK。
-3. 按向导设置服务端口、Web 用户名和密码，等待依赖安装完成。
+3. 按向导设置服务端口和 Web 密码，等待依赖安装完成。
 4. 启动应用，点击飞牛桌面的 **OpenCode** 图标。
 5. 将项目放入 `OpenCode/projects/<项目名称>` 子目录，在应用内添加该项目目录，连接供应商并新建会话。
 
@@ -50,22 +53,20 @@
 在设置中打开“提供商”，选择服务并完成连接。
 
 - **API Key**：按供应商要求填写密钥和服务地址。
-- **OpenCode Console / Go**：选择 `OpenCode Console account (Go subscription)`，打开官方授权链接并完成账号授权。
+- **OpenCode Console / Go**：选择对应的提供商，按官方页面提示完成账号授权。2.x 使用原生授权流程，并迁移旧版飞牛授权记录。
 - **本地模型服务**：使用 NAS 可以访问的服务地址；NAS 上的 `localhost` 指向 NAS 本机。
 
 授权与模型使用范围以供应商账号、套餐和服务状态为准。密钥在 OpenCode 内配置，无需写入安装包。
 
 ### 自动接受权限
 
-在 **设置 → 通用 → 自动接受权限** 开启后，全局默认权限设为允许，工具调用可自动执行。关闭时恢复本次打开设置前的策略；重新打开设置时若当前已经全局允许，关闭将切换为请求审批。项目自身配置仍可能覆盖全局默认值。该开关不会替代供应商的账号授权。
+在 **设置 → 偏好设置 → 自动接受权限** 开启官方默认自动审批。项目可以单独设置权限，已有配置中的权限规则仍按官方规则处理。该开关不会替代供应商的账号授权。
 
 ### MCP、插件与技能
 
 打开 **设置 → 扩展**：
 
-- **MCP**：查看和编辑全局 MCP 服务配置。
-- **插件**：配置 npm 插件或服务器上的本地插件。
-- **技能**：查看已发现技能的名称、描述和文件位置。
+- **MCP、插件、技能**：使用新版官方扩展页面管理；项目也有独立的扩展设置。
 
 技能通过 `SKILL.md` 文件安装：
 
@@ -74,7 +75,7 @@
 | 全局技能 | `/var/apps/opencode-fnos/etc/opencode/skills/<名称>/SKILL.md` |
 | 项目技能 | `<项目目录>/.opencode/skills/<名称>/SKILL.md` |
 
-扩展页提供配置和查看功能，尚不包含插件市场、技能上传安装或 MCP OAuth 图形引导。技能文件安装后可重启应用，再刷新列表。
+旧版飞牛扩展页由官方原生页面接替。技能文件安装后可重启应用，再刷新列表。
 
 ## 程序更新（1.19.4-1 起）
 
@@ -84,7 +85,7 @@
 
 ```bash
 fnos-opencode-update check
-fnos-opencode-update apply 1.19.4
+fnos-opencode-update apply 2.2.2
 fnos-opencode-update status
 fnos-opencode-update rollback
 ```
@@ -99,7 +100,7 @@ fnos-opencode-update rollback
 项目文件位于 `OpenCode/projects` 共享目录；应用配置、授权信息和会话数据由 fnOS 应用数据目录保存。
 
 - 升级前建议备份重要项目和应用数据。
-- OpenCode 可随 FPK 更新。1.19.4-2 起也可通过飞牛设置里的“程序更新”独立更新官方程序；官方原生自更新仍禁用，避免绕过兼容检查。
+- OpenCode 可随 FPK 更新。1.19.4-1 起也可通过飞牛设置里的“程序更新”独立更新官方程序；官方原生自更新仍禁用，避免绕过兼容检查。
 - 卸载时可选择加密导出私有数据，解密密码为卸载时使用的 Web 密码，请妥善保管。
 - 旧导出文件始终使用导出时的旧密码解密；修改 Web 密码不会更改已有备份的加密密码。
 - 升级恢复点不会自动删除，确认不再需要后可手动清理，避免长期占用空间。
@@ -140,7 +141,7 @@ python scripts/build.py
 也可以指定上游版本、架构和适配修订号：
 
 ```bash
-python scripts/build.py 1.19.4 x86_64 --revision 2
+python scripts/build.py 2.2.2 x86_64 --revision 1
 ```
 
 安装包检查需要 Bash；Windows 可使用 Git for Windows 提供的 Bash：
@@ -152,8 +153,10 @@ python scripts/verify.py
 网关与授权适配的回归检查需要 Node.js：
 
 ```bash
+python scripts/capture-ui.py
 node --test scripts/console-oauth.test.mjs scripts/gateway.test.mjs scripts/gateway-fetch.test.mjs scripts/update-api.test.mjs scripts/attachment-digest.test.mjs
 python scripts/runtime.test.py
+python scripts/migrate-console.test.py
 ```
 
 

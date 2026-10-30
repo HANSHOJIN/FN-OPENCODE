@@ -5,6 +5,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { updateAPI } from './update-api.mjs'
+import { entry as adaptEntry, resource as adaptResource } from './adapter.mjs'
 
 const PROTOCOL = JSON.parse(fs.readFileSync(new URL('./protocol.json', import.meta.url), 'utf8'))
 export const PREFIX = PROTOCOL.prefix
@@ -12,50 +13,8 @@ export const COMPATIBILITY = JSON.parse(fs.readFileSync(new URL('./compatibility
 export const UI_SHA256 = COMPATIBILITY.ui.sha256
 export const SETTINGS_SHA256 = COMPATIBILITY.settings[0].sha256
 export const SETTINGS_V2_SHA256 = COMPATIBILITY.settings[1].sha256
-export function patchSettings(source) {
-  const hash = crypto.createHash('sha256').update(source).digest('hex')
-  if (![SETTINGS_SHA256, SETTINGS_V2_SHA256].includes(hash)) throw new Error('Unsupported upstream settings UI')
-  const v2 = hash === SETTINGS_V2_SHA256
-  let text = source.toString('utf8')
-  const trigger = v2 ? 'a(v,()=>t.t("app.name.desktop"))' : 'r(O,()=>t.t("app.name.desktop"))'
-  const content = v2 ? 'r(F.Content,{value:"models",class:"settings-v2-panel",get children(){return r(Kr,{})}})' : 'e(C.Content,{value:"models",class:"no-scrollbar",get children(){return e(cr,{})}})'
-  for (const [name, needle] of [['settings navigation', trigger], ['settings content', content]]) {
-    if (text.split(needle).length !== 2) throw new Error('Upstream adapter anchor changed: ' + name)
-  }
-  const nav = v2 ? 'a(L,r(F.Trigger,{value:"fnos-extensions",children:"扩展"}),null),' : 'r(N,e(C.Trigger,{value:"fnos-extensions",children:"扩展"}),null),'
-  const panel = v2 ? 'r(F.Content,{value:"fnos-extensions",class:"settings-v2-panel",get children(){return window.__FNOS_OPENCODE__.extensionsPanel()}})' : 'e(C.Content,{value:"fnos-extensions",class:"no-scrollbar",get children(){return window.__FNOS_OPENCODE__.extensionsPanel()}})'
-  const updateNav = nav.replace('fnos-extensions', 'fnos-updates').replace('扩展', '程序更新')
-  const updatePanel = panel.replace('fnos-extensions', 'fnos-updates').replace('extensionsPanel()', 'updatesPanel()')
-  text = text.replace(trigger, nav + updateNav + trigger).replace(content, content + ',' + panel + ',' + updatePanel)
-  if (v2) {
-    const permission = 'function Xt(e){const t=Ke(),n=ce(),s=E(()=>{const i=e();if(i)return n().session.lineage.peek(i)?.session.directory});return{accepting:E(()=>{const i=e(),c=s();return!i||!c?!1:t.isAutoAccepting(i,c)}),enabled:E(()=>!!s()),set:i=>{const c=e(),l=s();if(!(!c||!l)){if(i)return t.enableAutoAccept(c,l);t.disableAutoAccept(c,l)}}}}'
-    if (text.split(permission).length !== 2) throw new Error('Upstream adapter anchor changed: automatic permission controller')
-    text = text.replace(permission, 'function Xt(e){return window.__FNOS_OPENCODE__.permissionController(Dt)}')
-  }
-  return Buffer.from(text)
-}
-export function patchUI(source) {
-  if (crypto.createHash('sha256').update(source).digest('hex') !== UI_SHA256) throw new Error('Unsupported upstream Web UI; review the gateway adapter')
-  let text = source.toString('utf8')
-  const router = 'e.router??Qfe},root:'
-  const server = 'NJ=()=>location.hostname.includes("opencode.ai")?"http://localhost:4096":location.origin'
-  const version = 'Btt={version:qtt}'
-  const location = 'll=()=>ag().location'
-  const project = 'm={...h?s.data.project.find(p=>p.id===h):s.data.project.find(p=>p.worktree===u.worktree),...u}'
-  const attachment = 'crypto.subtle.digest("SHA-256",await e.arrayBuffer())'
-  if (text.split(attachment).length !== 3) throw new Error('Upstream adapter anchor changed: attachment hashing')
-  for (const [name, needle] of Object.entries({router, server, version, location, project})) {
-    if (text.split(needle).length !== 2) throw new Error('Upstream adapter anchor changed: ' + name)
-  }
-  text = text.replace(router, 'e.router??Qfe},base:window.__FNOS_OPENCODE__.prefix,root:')
-    .replace(server, 'NJ=()=>location.origin+window.__FNOS_OPENCODE__.prefix')
-    .replace(version, 'Btt={version:window.__FNOS_OPENCODE__.displayVersion}')
-    .replace(location, 'll=()=>window.__FNOS_OPENCODE__.routeLocation(ag().location)')
-    .replace(project, 'm=window.__FNOS_OPENCODE__.projectMetadata({...h?s.data.project.find(p=>p.id===h):s.data.project.find(p=>p.worktree===u.worktree),...u},e)')
-    .replaceAll('OpenCode Desktop', 'OpenCode for fnOS')
-    .replaceAll(attachment, 'window.__FNOS_OPENCODE__.attachmentDigest(e)')
-  return Buffer.from(text)
-}
+export function patchSettings(source) { return adaptResource(source, COMPATIBILITY) }
+export function patchUI(source) { return adaptEntry(source, COMPATIBILITY) }
 export function stripPrefix(url) {
   const parsed = new URL(url, 'http://gateway.local')
   if (parsed.pathname !== PREFIX && !parsed.pathname.startsWith(PREFIX + '/')) return null
@@ -72,7 +31,7 @@ export function adaptHTML(source) {
     const type = tag.match(/\btype\s*=\s*['"]([^'"]+)['"]/i)?.[1]
     const src = tag.match(/\bsrc\s*=\s*['"]([^'"]+)['"]/i)?.[1]
     return type === 'module' ? src : null
-  }).find(src => src && /^\/(?:app\/opencode-fnos\/)?assets\/index-[^/?]+\.js(?:\?.*)?$/.test(src))
+  }).find(src => src && /^\/(?:app\/opencode-fnos\/)?_?assets\/index-[^/?]+\.js(?:\?.*)?$/.test(src))
   if (!entry) throw new Error('Unsupported upstream HTML: module entry not found')
   const asset = entry.startsWith(PREFIX + '/') ? entry.slice(PREFIX.length) : entry
   let html = source.replace(/(src|href)=(['"])(\/[^'"]*)\2/g, (match, name, quote, url) =>
@@ -84,13 +43,14 @@ export function adaptHTML(source) {
 }
 
 export function createGateway({ port, username, password, version, bootstrap }) {
-  const authorization = 'Basic ' + Buffer.from(username + ':' + password).toString('base64')
+  const updateToken = crypto.randomBytes(32).toString('hex')
+  const authorization = 'Basic ' + Buffer.from((PROTOCOL.backendUsername || username) + ':' + password).toString('base64')
   let patched
   let entryPath = COMPATIBILITY.entry
   let webVersion, metadataRequest
   async function metadata() {
     metadataRequest ||= (async () => {
-      const health = await fetch(`http://127.0.0.1:${port}/global/health`, {headers:{authorization},signal:AbortSignal.timeout(3000)})
+      const health = await fetch(`http://127.0.0.1:${port}/api/info`, {headers:{authorization},signal:AbortSignal.timeout(3000)})
       if (!health.ok) throw new Error('Backend health unavailable')
       const state = await health.json()
       if (typeof state.version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(state.version)) throw new Error('Backend version missing')
@@ -105,10 +65,18 @@ export function createGateway({ port, username, password, version, bootstrap }) 
         }
         const source = Buffer.concat(chunks)
         patched = patchUI(source)
-        webVersion = source.toString('utf8').match(/const qtt="([^"]+)"/)?.[1]
+        webVersion = COMPATIBILITY.web
         if (!webVersion) { patched = undefined; throw new Error('Embedded Web version missing') }
       }
-      return {prefix:PREFIX,package:version,server:state.version,web:webVersion,displayVersion:`${version} (Server ${state.version} / Web ${webVersion})`}
+      let projectHistory = []
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/api/project`, {headers:{authorization},signal:AbortSignal.timeout(3000)})
+        if (response.ok) {
+          const projects = await response.json()
+          if (Array.isArray(projects)) projectHistory = projects.filter(item => typeof item.id === 'string' && typeof item.canonical === 'string' && !['.npm','.cache'].includes(path.basename(item.canonical))).slice(0,100).map(item => item.id)
+        }
+      } catch { /* The native client will still load projects when the API is ready. */ }
+      return {prefix:PREFIX,package:version,server:state.version,web:webVersion,updateToken,projectHistory,displayVersion:`${version} (Server ${state.version} / Web ${webVersion})`}
     })().finally(() => { metadataRequest = undefined })
     return metadataRequest
   }
@@ -116,7 +84,7 @@ export function createGateway({ port, username, password, version, bootstrap }) 
     const upstreamPath = stripPrefix(req.url)
     if (upstreamPath === null) { res.writeHead(404); res.end(); return }
     if (!admin(req)) { res.writeHead(403, {'Content-Type':'text/plain; charset=utf-8'}); res.end('仅飞牛管理员可使用此应用入口。'); return }
-    if (upstreamPath.startsWith('/_fnos/update/')) {await updateAPI(req,res,upstreamPath);return}
+    if (upstreamPath.startsWith('/_fnos/update/')) {await updateAPI(req,res,upstreamPath,undefined,updateToken);return}
     if (['/_fnos/extensions.js', '/_fnos/window-theme.js', '/_fnos/updates.js', '/_fnos/attachment-digest.js'].includes(upstreamPath)) {
       res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'})
       const file={'/_fnos/window-theme.js':'./window-theme.mjs','/_fnos/updates.js':'./updates.mjs','/_fnos/extensions.js':'./extensions.mjs','/_fnos/attachment-digest.js':'./attachment-digest.mjs'}[upstreamPath]
@@ -161,7 +129,7 @@ export function createGateway({ port, username, password, version, bootstrap }) 
           let data = Buffer.concat(chunks)
           if (main && response.statusCode === 200) {
             const verified = patchUI(data)
-            webVersion = data.toString('utf8').match(/const qtt="([^"]+)"/)?.[1]
+            webVersion = COMPATIBILITY.web
             patched = verified; data = verified
           }
           else if (settings && response.statusCode === 200) data = patchSettings(data)

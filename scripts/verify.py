@@ -26,7 +26,7 @@ def shellpath(path):
 
 class PackageTests(unittest.TestCase):
     def test_package_permissions_and_contract(self):
-        artifact = ROOT / f'dist/OpenCode-fnOS-1.19.4-2-{ARCH}.fpk'
+        artifact = ROOT / f'dist/OpenCode-fnOS-2.2.2-1-{ARCH}.fpk'
         from build import validate_fpk
         validate_fpk(artifact)
         evidence = json.loads(artifact.with_suffix('.build.json').read_text())
@@ -139,6 +139,9 @@ class PackageTests(unittest.TestCase):
         for data in [b'{"nested":{"healthy":true}}', b'{"healthy":"true"}', b'{"healthy":false}', b'not JSON']:
             self.assertFalse(health.healthy(Connection(data), '/', {}))
         self.assertTrue(health.healthy(Connection(b'{"healthy":true,"version":"test"}'), '/', {}))
+        self.assertTrue(health.healthy(Connection(b'{"version":"2.2.2","pid":123,"urls":[]}'), '/', {}, 'info'))
+        for data in [b'{"version":"2.2.2","pid":true,"urls":[]}', b'{"version":"2.2.2"}', b'{"version":"bad","pid":123,"urls":[]}']:
+            self.assertFalse(health.healthy(Connection(data), '/', {}, 'info'))
 
     def test_wizard_injection_and_preservation(self):
         with tempfile.TemporaryDirectory(dir=ROOT / '.build') as temp:

@@ -8,19 +8,12 @@ import vm from 'node:vm'
 import { attachmentDigest } from '../opencode-fnos/app/gateway/attachment-digest.mjs'
 import { createGateway, adaptHTML, patchUI, patchSettings, stripPrefix, PREFIX, UI_SHA256, COMPATIBILITY } from '../opencode-fnos/app/gateway/server.mjs'
 
-let embeddedUI
-const fixtureBinary = process.env.OPENCODE_TEST_BINARY || new URL('../.build/opencode-1.19.4-x86_64/app/bin/opencode', import.meta.url)
+const fixtureRoot = new URL('../.build/upstream-ui', import.meta.url)
 function officialUI() {
-  if (embeddedUI) return embeddedUI
-  const binary = fs.readFileSync(fixtureBinary)
-  const start = Buffer.from('const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/angular-html-DgL0RwuR.js","asse')
-  let offset = 0
-  while ((offset = binary.indexOf(start, offset)) >= 0) {
-    const asset = binary.subarray(offset, offset + COMPATIBILITY.ui.size)
-    if (crypto.createHash('sha256').update(asset).digest('hex') === UI_SHA256) return embeddedUI = asset
-    offset++
-  }
-  throw new Error('Official UI fixture not found')
+  return fs.readFileSync(new URL('.' + COMPATIBILITY.entry, fixtureRoot.href + '/'))
+}
+function officialAsset(item) {
+  return fs.readFileSync(new URL('.' + item.path, fixtureRoot.href + '/'))
 }
 
 test('HTML discovers the module entry and injects bootstrap after charset without double prefixes',()=>{
@@ -37,65 +30,57 @@ test('gateway accepts only its declared prefix', () => {
   assert.equal(stripPrefix(PREFIX + '/../private'), null)
 })
 
-test('pinned official embedded UI supports router and truthful version adaptation', () => {
-  const binary = fs.readFileSync(fixtureBinary)
-  const prefix = Buffer.from('const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/angular-html-DgL0RwuR.js","asse')
-  let offset = 0, found
-  while ((offset = binary.indexOf(prefix, offset)) >= 0) {
-    const asset = binary.subarray(offset, offset + COMPATIBILITY.ui.size)
-    if (crypto.createHash('sha256').update(asset).digest('hex') === UI_SHA256) { found = asset; break }
-    offset++
-  }
-  assert.ok(found, 'Official upstream UI changed; do not ship an unreviewed adapter')
-  const code = patchUI(found).toString()
+test('verified official 2.2.2 UI supports fnOS routing and truthful versions', () => {
+  const code = patchUI(officialUI()).toString()
   assert.ok(code.includes('base:window.__FNOS_OPENCODE__.prefix'))
-  assert.ok(code.includes('ll=()=>window.__FNOS_OPENCODE__.routeLocation(ag().location)'))
-  assert.ok(code.includes('Btt={version:window.__FNOS_OPENCODE__.displayVersion}'))
-  assert.ok(code.includes('const qtt="1.19.3"'), 'Do not falsify the upstream UI version')
+  assert.ok(code.includes('location.origin+window.__FNOS_OPENCODE__.prefix'))
+  assert.ok(code.includes('version:window.__FNOS_OPENCODE__.displayVersion'))
+  assert.ok(code.includes('version:`2.2.2`'), 'Keep the actual upstream version')
+  assert.ok(!code.includes('navigator.serviceWorker.register(`/sw.js`)'))
   assert.throws(() => patchUI(Buffer.from('different build')), /Unsupported/)
 })
 
-test('both official attachment paths work without Web Crypto on HTTP', async () => {
-  const original = officialUI().toString()
-  const code = patchUI(officialUI()).toString()
-  const file = new File([Buffer.alloc(11264, 97)], '项目移交.MD', {type:'text/markdown'})
-  const context = {
-    window: {__FNOS_OPENCODE__:{attachmentDigest: blob => attachmentDigest(blob, {})}},
-    Uint8Array, URL,
-  }
-  for (const name of ['yX', 'qze']) {
-    const pattern = new RegExp('async function ' + name + '\\(e\\)\\{.*?\\}(?=async function |const |function )')
-    const before = original.match(pattern)?.[0]
-    const after = code.match(pattern)?.[0]
-    assert.ok(before && after, 'official attachment function remains discoverable: ' + name)
-    await assert.rejects(vm.runInNewContext('(' + before + ')', context)(file), /crypto/)
-    const result = await vm.runInNewContext('(' + after + ')', context)(file)
-    const expected = crypto.createHash('sha256').update(Buffer.alloc(11264, 97)).digest('hex')
-    assert.equal(typeof result === 'string' ? result : result.id, expected)
-    if (typeof result !== 'string') URL.revokeObjectURL(result.url)
-  }
+test('official attachment IDs support HTTP without Web Crypto', async () => {
+  const source = officialAsset(COMPATIBILITY.settings.find(a => a.role === 'router')).toString()
+  const native = source.match(/async function Co\(e\)\{.*?\}(?=async function)/)?.[0]
+  assert.ok(native)
+  const context = {crypto:{getRandomValues: a => crypto.webcrypto.getRandomValues(a)}, Uint8Array}
+  const id = await vm.runInNewContext('(' + native + ')', context)(new File([Buffer.alloc(11264,97)], '项目移交.MD'))
+  assert.match(id, /^[a-f0-9]{32}$/)
 })
 
-test('official settings gain a real extensions tab with a pinned compatibility check',()=>{
- const binary=fs.readFileSync(fixtureBinary)
- const prefix=Buffer.from("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/index-C9CPzbQq.js\",\"assets/index-BV")
- const offset=binary.indexOf(prefix)
- assert.ok(offset>=0)
- const code=patchSettings(binary.subarray(offset,offset+33910)).toString()
- assert.ok(code.includes('value:"fnos-extensions",children:"扩展"'))
- assert.ok(code.includes('return window.__FNOS_OPENCODE__.extensionsPanel()'))
- const v2prefix=Buffer.from("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/dialog-settings-DVVNnr0F.js\",\"asset")
- const v2offset=binary.indexOf(v2prefix)
- assert.ok(v2offset>=0)
- const v2=patchSettings(binary.subarray(v2offset,v2offset+60149)).toString()
- assert.ok(v2.includes('value:"fnos-extensions",children:"扩展"'))
- assert.ok(v2.includes('return window.__FNOS_OPENCODE__.extensionsPanel()'))
- assert.ok(v2.includes('permissionController(Dt)'))
- assert.throws(()=>patchSettings(Buffer.from('other build')),/Unsupported/)
+test('all native settings and router chunks retain their hash gates', () => {
+  for (const item of COMPATIBILITY.settings) {
+    const code = patchSettings(officialAsset(item)).toString()
+    if (item.role === 'settings') {
+      assert.ok(code.includes('value:`fnos-updates`'))
+      assert.ok(code.includes('window.__FNOS_OPENCODE__.updatesPanel()'))
+      for (const tab of ['extensions','projects','workspaces','providers']) assert.ok(code.includes('value:`'+tab+'`'))
+    } else if (item.role === 'settings-route') assert.ok(code.includes('"fnos-updates":!0'))
+    else if (item.role === 'projects') assert.ok(code.includes('window.__FNOS_OPENCODE__.storedProjectIDs(e.scope())'))
+    else assert.ok(code.includes('window.__FNOS_OPENCODE__.routeLocation(_n().location)'))
+  }
+  assert.throws(() => patchSettings(Buffer.from('different build')), /Unsupported/)
+})
+
+test('fresh browser storage recovers NAS projects while saved choices and other servers remain isolated', () => {
+  const asset = COMPATIBILITY.settings.find(item => item.role === 'projects')
+  const code = patchSettings(officialAsset(asset)).toString()
+  const native = code.match(/function V\(e\)\{.*?\}(?=function)/)?.[0]
+  assert.ok(native)
+  const recover = scope => scope === 'local' ? ['remembered-project'] : []
+  const create = vm.runInNewContext('(' + native + ')', {window:{__FNOS_OPENCODE__:{storedProjectIDs:recover}}})
+  const state = {usedProjectIDs:{},lastProjectID:{}}
+  assert.deepEqual([...create({scope:()=>'local',store:state}).used()], ['remembered-project'])
+  assert.deepEqual([...create({scope:()=>'remote-server',store:state}).used()], [])
+  state.usedProjectIDs.local = []
+  assert.deepEqual([...create({scope:()=>'local',store:state}).used()], [])
+  state.usedProjectIDs.local = ['custom-choice']
+  assert.deepEqual([...create({scope:()=>'local',store:state}).used()], ['custom-choice'])
 })
 
 test('HTTP, SSE and WebSocket forwarding preserve auth and stream bytes', async () => {
-  const auth = 'Basic ' + Buffer.from('test:private-test-password').toString('base64')
+  const auth = 'Basic ' + Buffer.from('opencode:private-test-password').toString('base64')
   const backend = http.createServer((req, res) => {
     assert.equal(req.headers.authorization, auth)
     assert.ok(!Object.keys(req.headers).some(key=>key.startsWith('x-trim-')))
@@ -151,7 +136,7 @@ test('HTTP, SSE and WebSocket forwarding preserve auth and stream bytes', async 
 test('renamed module entries still require a verified hash and metadata uses real version values',async()=>{
  let broken=false
  const backend=http.createServer((req,res)=>{
-  if(req.url==='/global/health'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({healthy:true,version:'9.8.7'}));return}
+  if(req.url==='/api/info'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({healthy:true,version:'9.8.7'}));return}
   if(req.url==='/assets/index-renamed.js'){res.setHeader('Content-Type','text/javascript');res.end(broken?'changed upstream':officialUI());return}
   if(req.url==='/assets/index-lazy.js'){res.setHeader('Content-Type','text/javascript');res.end('/* unrelated lazy module */');return}
   res.setHeader('Content-Type','text/html');res.end('<head><meta charset="utf-8"><script type="module" src="/assets/index-renamed.js"></script></head>')
@@ -163,7 +148,11 @@ test('renamed module entries still require a verified hash and metadata uses rea
  try {
   assert.equal((await fetch(base+'/',{headers})).status,200)
   const boot=await(await fetch(base+'/_fnos/bootstrap.js',{headers})).text()
-  assert.ok(boot.includes('Server 9.8.7 / Web 1.19.3'))
+  assert.ok(boot.includes('Server 9.8.7 / Web 2.2.2'))
+  const metadata=JSON.parse(boot.slice('window.__FNOS_OPENCODE__='.length,boot.indexOf(';\n')))
+  assert.match(metadata.updateToken,/^[a-f0-9]{64}$/)
+  assert.equal((await fetch(base+'/_fnos/bootstrap.js')).status,403)
+  assert.equal((await fetch(base+'/_fnos/update/request',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({action:'rollback'})})).status,403)
   assert.equal((await fetch(base+'/assets/index-renamed.js',{headers})).status,200)
   assert.equal((await fetch(base+'/assets/index-lazy.js',{headers})).status,200)
   broken=true

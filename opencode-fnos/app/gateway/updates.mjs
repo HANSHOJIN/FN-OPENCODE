@@ -14,7 +14,7 @@ export function mount(root) {
   note.style.cssText='font-size:13px;opacity:.75;line-height:1.7'
   let busy=false, querying=false, submitting=false, current, timer, failures=0, lastPhase
   const api=async(url,body)=>{
-    const response=await fetch(window.__FNOS_OPENCODE__.prefix+'/_fnos/update/'+url,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined)
+    const response=await fetch(window.__FNOS_OPENCODE__.prefix+'/_fnos/update/'+url,body?{method:'POST',headers:{'Content-Type':'application/json','X-FNOS-Update-Token':window.__FNOS_OPENCODE__.updateToken||''},body:JSON.stringify(body)}:undefined)
     const data=await response.json()
     if(!response.ok)throw new Error(data.error||'请求失败')
     return data

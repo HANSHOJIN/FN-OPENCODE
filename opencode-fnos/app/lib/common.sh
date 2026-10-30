@@ -21,9 +21,10 @@ prepare() {
   OPENCODE_CONFIG_CONTENT=$(python3 - "$TRIM_APPDEST/plugins/console-oauth.mjs" <<'PY'
 import json,os,pathlib,sys
 config=json.loads(os.environ.get('OPENCODE_CONFIG_CONTENT') or '{}')
-plugins=config.setdefault('plugin',[])
+# OpenCode 2 has native Console/Go OAuth; the V1 bridge must not be loaded.
 url=pathlib.Path(sys.argv[1]).resolve().as_uri()
-if url not in plugins: plugins.append(url)
+for key in ('plugin','plugins'):
+    if isinstance(config.get(key),list):config[key]=[item for item in config[key] if item!=url]
 instructions=config.setdefault('instructions',[])
 guide=str(pathlib.Path(sys.argv[1]).parent.parent/'lib/fnos-update.md')
 if pathlib.Path(guide).is_file() and guide not in instructions: instructions.append(guide)

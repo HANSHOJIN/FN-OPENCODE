@@ -2,6 +2,7 @@
 import argparse
 from contextlib import contextmanager, closing
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -285,7 +286,7 @@ class Runtime:
 
     def start(self):
         self.settings()
-        self.spawn('opencode', [str(self.binary()), 'web', '--hostname', '0.0.0.0', '--port', str(self.port)], {**os.environ, **self.credentials}, Path(os.environ['FNOS_WORKSPACE']))
+        self.spawn('opencode', [str(self.binary()), 'serve', '--hostname', '0.0.0.0', '--port', str(self.port)], {**os.environ, **self.credentials}, Path(os.environ['FNOS_WORKSPACE']))
         self.spawn('gateway', ['node', str(self.app / 'gateway/server.mjs')], {**os.environ, 'FNOS_SERVER_PID': str(os.getpid())})
         deadline = time.monotonic() + 40
         while time.monotonic() < deadline:
@@ -293,6 +294,11 @@ class Runtime:
                 raise ValueError('OpenCode 或网关启动失败，请查看应用日志。')
             result = subprocess.run([sys.executable, str(self.app / 'lib/health.py'), str(self.app), str(self.etc)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8)
             if result.returncode == 0:
+                try:
+                    from migrate_console import migrate
+                    migrate(self.port, self.credentials['OPENCODE_SERVER_PASSWORD'], self.etc, self.var / 'data')
+                except (OSError, ValueError, KeyError, http.client.HTTPException):
+                    print('旧版 Console 授权尚未完成迁移，可重启重试或在提供商中重新连接。', file=sys.stderr)
                 return
             time.sleep(0.5)
         raise ValueError('新版启动健康检查超时。')
@@ -350,7 +356,7 @@ class Runtime:
             }
             env = {**os.environ, **probe_credentials, 'HOME': str(temp / 'home'), 'XDG_CONFIG_HOME': str(temp / 'etc'), 'XDG_DATA_HOME': str(temp / 'data'), 'XDG_STATE_HOME': str(temp / 'state'), 'XDG_CACHE_HOME': str(temp / 'cache')}
             with (temp / 'probe.log').open('wb') as log:
-                self.probe = subprocess.Popen([str(binary), 'web', '--hostname', '127.0.0.1', '--port', str(port)], env=env, cwd=temp, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                self.probe = subprocess.Popen([str(binary), 'serve', '--hostname', '127.0.0.1', '--port', str(port)], env=env, cwd=temp, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
                     subprocess.run(['node', str(self.app / 'gateway/validate-upstream.mjs'), str(port), str(temp / 'etc'), version], check=True, timeout=90, stdout=subprocess.DEVNULL, stderr=log, env={k: v for k, v in os.environ.items() if k not in self.credentials})
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:

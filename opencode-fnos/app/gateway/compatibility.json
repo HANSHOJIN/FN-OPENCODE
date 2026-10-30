@@ -1,10 +1,35 @@
 {
-  "server": "1.19.4",
-  "web": "1.19.3",
-  "entry": "/assets/index-BVEDUzgq.js",
-  "ui": {"sha256": "521b103de4415f7ba14efb9fc8a9db50d2d511d6e4919a4850f4c4ec6fe486b2", "size": 2738111},
+  "server": "2.2.2",
+  "web": "2.2.2",
+  "entry": "/_assets/index-DL1iKLIJ.js",
+  "ui": {
+    "sha256": "d9610eb026a5f0c107e6fdc6ea256fb7c46757570618696df02c0d28676477fc",
+    "size": 689724
+  },
   "settings": [
-    {"path": "/assets/dialog-settings-DVVNnr0F.js", "sha256": "c4418ca0563e1e806d71151561976627d1606b007020971a67d64f2a8e6d1420", "size": 33910},
-    {"path": "/assets/index-C9CPzbQq.js", "sha256": "80330c7e947a90bca56693fd2d3385e48a8d04a0ac6c75db2e5a7b8e46eb6d1f", "size": 60149}
+    {
+      "path": "/_assets/shell-Cwsi8jek.js",
+      "role": "settings",
+      "sha256": "d342e145ab8a862e4223cc19f7db9e184b15dcca5738727435cd6ccff3cf78bf",
+      "size": 139670
+    },
+    {
+      "path": "/_assets/host-apis-By9S2f34.js",
+      "role": "settings-route",
+      "sha256": "f926b42349aa5c3cb562c6ff4fda8e26437911e3f039ed28e1234491edc484f2",
+      "size": 47518
+    },
+    {
+      "path": "/_assets/current-km3ZQmgX.js",
+      "role": "router",
+      "sha256": "192ee4215606da8ade01f9892e8acc6010093fa508fad2bc2dec0f834a3c2ba3",
+      "size": 131035
+    },
+    {
+      "path": "/_assets/health-DqXWX7Gd.js",
+      "role": "projects",
+      "sha256": "502aecd725376aebedf6799589554ae22048d6bba9fef6eab15312fa18953703",
+      "size": 8398
+    }
   ]
 }

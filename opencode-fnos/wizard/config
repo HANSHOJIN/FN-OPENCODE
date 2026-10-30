@@ -18,22 +18,6 @@
         "type": "text"
       },
       {
-        "rules": [
-          {
-            "message": "请输入用户名",
-            "required": true
-          },
-          {
-            "message": "仅允许字母、数字、点、短横线及下划线",
-            "pattern": "^[A-Za-z0-9_.-]{1,64}$"
-          }
-        ],
-        "label": "Web 用户名",
-        "initValue": "opencode",
-        "field": "wizard_username",
-        "type": "text"
-      },
-      {
         "label": "Web 密码（留空保留原密码）",
         "field": "wizard_password",
         "type": "password"

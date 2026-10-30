@@ -1,6 +1,10 @@
 /* Runs before upstream modules; keep upstream router and requests under fnOS. */
 (() => {
   const prefix = window.__FNOS_OPENCODE__.prefix
+  // Recover the NAS project list when a mobile WebView starts with fresh storage.
+  // An explicit saved empty list still wins, so hiding projects stays effective.
+  window.__FNOS_OPENCODE__.storedProjectIDs = scope => scope === 'local'
+    ? [...(window.__FNOS_OPENCODE__.projectHistory || [])] : []
   window.__FNOS_OPENCODE__.attachmentDigest = async blob => {
     const module = await import(prefix + '/_fnos/attachment-digest.js')
     return module.attachmentDigest(blob)
