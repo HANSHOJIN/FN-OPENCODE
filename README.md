@@ -6,14 +6,14 @@
 
 本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.2-1/OpenCode-fnOS-2.2.2-1-x86_64.fpk) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
+[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-2) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 当前版本：[2.2.2-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.2.2-1)，提供 x86_64 与 ARM64 安装包。
+> 2.2.2-1 与 2.2.2-2 已撤回，正在修正项目目录兼容与手机端读取问题。当前可下载版本为 [1.19.4-2](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-2)。下方 2.2.2 系列说明属于开发中版本，不代表已通过实机验证。
 
 | 安装包 | 验证状态 | 下载 |
 | --- | --- | --- |
-| x86_64 | NAS 隔离运行与浏览器检查通过 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.2-1/OpenCode-fnOS-2.2.2-1-x86_64.fpk) |
-| ARM64 | 本版通过打包与架构检查 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.2-1/OpenCode-fnOS-2.2.2-1-arm64.fpk) |
+| x86_64 | 1.19.4-2 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-2/OpenCode-fnOS-1.19.4-2-x86_64.fpk) |
+| ARM64 | 1.19.4-2 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v1.19.4-2/OpenCode-fnOS-1.19.4-2-arm64.fpk) |
 
 ![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
 
