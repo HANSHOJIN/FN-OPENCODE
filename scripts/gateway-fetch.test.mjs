@@ -34,6 +34,34 @@ test('connection failures become visible after retries and disappear only on a r
   assert.equal(visible.length, 0)
 })
 
+test('HTTP read fallback is scoped to the fnOS backend and keeps only supported settings', () => {
+  const env = environment()
+  const {readsEnabled, settingsGroups} = env.window.__FNOS_OPENCODE__
+  const sdk = {scope:'local',url:'http://nas.local/app/opencode-fnos'}
+  assert.equal(readsEnabled(sdk), true)
+  assert.equal(readsEnabled({...sdk,scope:'remote'}), false)
+  assert.equal(readsEnabled({...sdk,url:'http://other.example/app/opencode-fnos'}), false)
+  assert.equal(readsEnabled({...sdk,url:'http://nas.local/'}), false)
+  assert.equal(readsEnabled({}), false)
+  const original=[{items:[{value:'general'},{value:'projects'},{value:'workspaces'}]},{items:[{value:'servers'},{value:'experimental'}]},{items:[{value:'providers'},{value:'models'},{value:'extensions'},{value:'fnos-updates'}]}]
+  const groups=settingsGroups(original)
+  assert.deepEqual(Array.from(groups.flatMap(group=>group.items.map(item=>item.value))), ['general','providers','models','extensions','fnos-updates'])
+  assert.equal(original[0].items.length, 3, 'Do not mutate the upstream menu definitions')
+})
+
+test('only a cached upgrade-created empty project selection is recovered', () => {
+  const env=environment()
+  env.window.__FNOS_OPENCODE__.projectHistory=['shared','old-npm']
+  env.window.__FNOS_OPENCODE__.retiredProjectIDs=['upgrade-empty']
+  const ids=env.window.__FNOS_OPENCODE__.projectIDs
+  assert.deepEqual(Array.from(ids('local',['upgrade-empty'])),['shared','old-npm'])
+  assert.deepEqual(Array.from(ids('local',['custom','upgrade-empty'])),['custom','shared','old-npm'])
+  const saved=['custom'],hidden=[]
+  assert.equal(ids('local',saved),saved)
+  assert.equal(ids('local',hidden),hidden)
+  assert.deepEqual(Array.from(ids('remote',['upgrade-empty'])),['upgrade-empty'])
+})
+
 test('unnamed fnOS global projects use the default label without renaming directories or custom projects',()=>{
  const env=environment(),server={type:'http',http:{url:'http://nas.local/app/opencode-fnos'}}
  const project={id:'global',worktree:'/home/app/.npm',expanded:true}

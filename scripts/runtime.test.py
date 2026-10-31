@@ -20,6 +20,23 @@ spec.loader.exec_module(runtime)
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_preflight_diagnostics_are_versioned_bounded_and_visible(self):
+        log = Path(self.temp.name) / 'preflight.log'
+        log.write_text('old unstructured server error\nFNOS_PREFLIGHT ' + json.dumps({
+            'version': '2.2.2', 'stage': 'old-failure', 'message': 'stale',
+        }) + '\nFNOS_PREFLIGHT ' + json.dumps({
+            'version': '2.2.5', 'stage': 'patchSettings', 'role': 'settings', 'path': '/_assets/settings.js',
+            'anchor': 'navigation', 'matches': 2, 'expectedMatches': 1, 'message': 'x' * 2000, 'unapproved': 'do not expose',
+        }), encoding='utf8')
+        details = runtime.preflight_details(log, '2.2.5')
+        self.assertEqual(details['matches'], 2)
+        self.assertEqual(len(details['message']), 1600)
+        self.assertNotIn('unapproved', details)
+        self.r.progress('failed', str(runtime.PreflightError(details)), 'job', details)
+        self.assertEqual(self.r.status()['diagnostics'], details)
+        self.assertEqual(self.r.status()['stage'], 'patchSettings')
+        self.assertEqual(runtime.preflight_details(log, '2.2.6')['stage'], 'startup')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(dir=ROOT / '.build')
         self.addCleanup(self.temp.cleanup)

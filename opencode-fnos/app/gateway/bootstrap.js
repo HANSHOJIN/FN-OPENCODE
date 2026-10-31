@@ -1,6 +1,24 @@
 /* Runs before upstream modules; keep upstream router and requests under fnOS. */
 (() => {
   const prefix = window.__FNOS_OPENCODE__.prefix
+  window.__FNOS_OPENCODE__.keyboardInsets = () => {
+    let disposed = false, cleanup
+    import(prefix + '/_fnos/mobile-keyboard.js').then(module => {
+      if (!disposed) cleanup = module.attachKeyboardInsets()
+    }).catch(() => {})
+    return () => {disposed = true; cleanup?.()}
+  }
+  // Initial HTTP reads must not wait for SSE. Preserve the native connection
+  // status for message generation, live events and reconnect reconciliation.
+  window.__FNOS_OPENCODE__.readsEnabled = sdk => {
+    try {
+      const url = new URL(sdk.url)
+      return sdk.scope === 'local' && url.origin === location.origin && url.pathname.replace(/\/$/, '') === prefix
+    } catch { return false }
+  }
+  window.__FNOS_OPENCODE__.settingsGroups = groups => groups.map(group => ({
+    ...group, items: group.items.filter(item => !['projects', 'workspaces', 'servers', 'experimental'].includes(item.value)),
+  })).filter(group => group.items.length)
   let connectionNotice
   window.__FNOS_OPENCODE__.connectionStatus = (status, error, attempt = 0) => {
     if (status === 'connected') {
@@ -16,7 +34,7 @@
       document.body.append(connectionNotice)
     }
     const message = document.createElement('span')
-    message.textContent = '实时连接尚未建立，会话列表正在等待连接。\n' + String(error || '连接中断').slice(0, 220) + '\n'
+    message.textContent = '实时连接尚未建立，项目与会话列表仍可读取；消息实时更新暂不可用。\n' + String(error || '连接中断').slice(0, 220) + '\n'
     const retry = document.createElement('button')
     retry.textContent = '重新连接'
     retry.onclick = () => window.location.reload()
@@ -26,6 +44,13 @@
   // An explicit saved empty list still wins, so hiding projects stays effective.
   window.__FNOS_OPENCODE__.storedProjectIDs = scope => scope === 'local'
     ? [...(window.__FNOS_OPENCODE__.projectHistory || [])] : []
+  window.__FNOS_OPENCODE__.projectIDs = (scope, saved) => {
+    if (saved === undefined) return window.__FNOS_OPENCODE__.storedProjectIDs(scope)
+    if (scope !== 'local') return saved
+    const retired = new Set(window.__FNOS_OPENCODE__.retiredProjectIDs || [])
+    if (!saved.some(id => retired.has(id))) return saved
+    return [...new Set([...saved.filter(id => !retired.has(id)), ...window.__FNOS_OPENCODE__.storedProjectIDs(scope)])]
+  }
   window.__FNOS_OPENCODE__.attachmentDigest = async blob => {
     const module = await import(prefix + '/_fnos/attachment-digest.js')
     return module.attachmentDigest(blob)
@@ -72,8 +97,17 @@
       },
     }
   }
-  if (window.frameElement) import(prefix + '/_fnos/window-theme.js')
-    .then(module => module.applyWindowTheme()).catch(() => {})
+  if (window.frameElement) {
+    // fnOS already places this iframe below its native mobile header. Do not
+    // count the outer WebView's top safe area again inside the app titlebar.
+    // Keep standalone browsers and the bottom titlebar's safe area unchanged.
+    const style = document.createElement('style')
+    style.id = 'fnos-mobile-titlebar'
+    style.textContent = '@media(max-width:767px){[data-slot="titlebar-v2"]:not(.order-last){height:44px!important;min-height:44px!important;padding-top:8px!important;padding-bottom:8px!important;box-sizing:border-box}}'
+    document.head.append(style)
+    import(prefix + '/_fnos/window-theme.js')
+      .then(module => module.applyWindowTheme()).catch(() => {})
+  }
   window.__FNOS_OPENCODE__.projectMetadata = (project, server) => {
     if (project.id !== 'global' || project.name) return project
     try {
@@ -123,6 +157,11 @@
   }, true)
   const nativeFetch = window.fetch.bind(window)
   window.fetch = async (input, options) => {
+    const targetURL = new URL(map(input instanceof Request ? input.url : input))
+    if (targetURL.origin === location.origin && targetURL.pathname === prefix + '/api/event' && (options?.method || (input instanceof Request ? input.method : 'GET')) === 'GET') {
+      const {relayEvents} = await import(prefix + '/_fnos/event-transport.js')
+      return relayEvents(new Request(targetURL, input instanceof Request ? new Request(input, options) : options), nativeFetch, location.origin + prefix + '/_fnos/events')
+    }
     if (!(input instanceof Request)) return nativeFetch(map(input), options)
     const target = map(input.url)
     // Request-as-RequestInit turns a JSON body into a streaming upload, which

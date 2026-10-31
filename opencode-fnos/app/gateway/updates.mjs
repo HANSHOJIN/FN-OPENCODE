@@ -35,6 +35,13 @@ export function mount(root) {
       info.textContent=`当前官方程序：${current.current}　飞牛安装包：${current.package}　架构：${current.architecture}`
       busy=!['idle','complete','failed'].includes(current.phase)
       status.textContent=current.message||''
+      if(current.diagnostics){
+        const d=current.diagnostics
+        status.textContent+='\n'+[d.stage,d.role,d.path,d.anchor].filter(Boolean).join(' · ')
+        if(typeof d.matches==='number')status.textContent+=`\n锚点命中 ${d.matches} 次，预期 ${d.expectedMatches} 次。`
+        if(d.expectedSha256)status.textContent+=`\n期望 SHA256：${d.expectedSha256}\n实际 SHA256：${d.actualSha256}`
+        if(d.message)status.textContent+='\n'+d.message
+      }
       if(current.phase==='complete' && lastPhase && lastPhase!=='complete')status.textContent+=' 请刷新整个窗口以加载新程序。'
       lastPhase=current.phase;refreshButtons()
     }catch{

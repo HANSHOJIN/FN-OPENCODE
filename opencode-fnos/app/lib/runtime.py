@@ -27,6 +27,29 @@ API = 'https://api.github.com/repos/anomalyco/opencode'
 HOSTS = {'api.github.com', 'github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com'}
 
 
+class PreflightError(ValueError):
+    def __init__(self, details):
+        self.details = details
+        super().__init__('预检失败（' + str(details.get('stage', 'startup')) + '）。当前版本未替换，请查看检查详情。')
+
+
+def preflight_details(path, version):
+    allowed = {'time', 'stage', 'version', 'role', 'path', 'anchor', 'matches', 'expectedMatches',
+               'expectedSha256', 'actualSha256', 'expectedSize', 'actualSize', 'message'}
+    for line in reversed(path.read_text(encoding='utf-8', errors='replace').splitlines()):
+        if not line.startswith('FNOS_PREFLIGHT '):
+            continue
+        try:
+            data = json.loads(line[len('FNOS_PREFLIGHT '):])
+            if data.get('version') != version:
+                continue
+            return {key: value[:1600] if isinstance(value, str) else value for key, value in data.items()
+                    if key in allowed and (isinstance(value, str) or type(value) is int)}
+        except (ValueError, AttributeError):
+            continue
+    return {'stage': 'startup', 'version': version, 'message': '候选程序未通过预检；请查看本次 last-preflight.log。'}
+
+
 def atomic(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(path.name + '.' + uuid.uuid4().hex + '.tmp')
@@ -227,8 +250,11 @@ class Runtime:
         state = read(self.root / 'rollback.json', {})
         return state.get('backup') if state.get('package') == self.package else None
 
-    def progress(self, phase, message, job=None):
-        atomic(self.root / 'status.json', {'phase': phase, 'message': message, 'job': job, 'time': int(time.time())})
+    def progress(self, phase, message, job=None, diagnostics=None):
+        state = {'phase': phase, 'message': message, 'job': job, 'time': int(time.time())}
+        if diagnostics:
+            state.update(stage=diagnostics.get('stage'), diagnostics=diagnostics)
+        atomic(self.root / 'status.json', state)
 
     def enqueue(self, action, version=None):
         if action not in ('apply', 'rollback'):
@@ -356,16 +382,20 @@ class Runtime:
             }
             env = {**os.environ, **probe_credentials, 'HOME': str(temp / 'home'), 'XDG_CONFIG_HOME': str(temp / 'etc'), 'XDG_DATA_HOME': str(temp / 'data'), 'XDG_STATE_HOME': str(temp / 'state'), 'XDG_CACHE_HOME': str(temp / 'cache')}
             with (temp / 'probe.log').open('wb') as log:
+                log.write(('FNOS_PREFLIGHT_START ' + json.dumps({'version': version, 'time': int(time.time())}) + '\n').encode())
+                log.flush()
                 self.probe = subprocess.Popen([str(binary), 'serve', '--hostname', '127.0.0.1', '--port', str(port)], env=env, cwd=temp, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 try:
                     subprocess.run(['node', str(self.app / 'gateway/validate-upstream.mjs'), str(port), str(temp / 'etc'), version], check=True, timeout=90, stdout=subprocess.DEVNULL, stderr=log, env={k: v for k, v in os.environ.items() if k not in self.credentials})
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
                     log.flush()
                     shutil.copyfile(temp / 'probe.log', self.root / 'last-preflight.log')
-                    raise ValueError('新版与飞牛界面或接口不兼容，或未能正常启动。当前版本未替换；请等待新版 FPK。') from exc
+                    raise PreflightError(preflight_details(self.root / 'last-preflight.log', version)) from exc
                 finally:
                     self.kill(self.probe)
                     self.probe = None
+                    log.flush()
+                    shutil.copyfile(temp / 'probe.log', self.root / 'last-preflight.log')
 
     def install(self, version, job):
         self.progress('downloading', '正在下载并校验官方程序。', job)
@@ -425,7 +455,7 @@ class Runtime:
                     self.restore(job)
                     (self.root / 'transaction.json').unlink()
                 self.start()
-            self.progress('failed', str(exc) if isinstance(exc, ValueError) else '更新失败：' + type(exc).__name__ + '。请检查网络、磁盘及应用日志。', job)
+            self.progress('failed', str(exc) if isinstance(exc, ValueError) else '更新失败：' + type(exc).__name__ + '。请检查网络、磁盘及应用日志。', job, getattr(exc, 'details', None))
 
     def serve(self):
         import maintenance

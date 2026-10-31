@@ -8,7 +8,7 @@
 
 [直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-2) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 2.2.2-1 与 2.2.2-2 已撤回，正在修正项目目录兼容与手机端读取问题。当前可下载版本为 [1.19.4-2](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-2)。下方 2.2.2 系列说明属于开发中版本，不代表已通过实机验证。
+> 2.2.2-1 与 2.2.2-2 已撤回。当前公开下载版本为 [1.19.4-2](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v1.19.4-2)；2.2.5-2 源码已更新，安装包仍在测试，尚未发布 Release。下方 2.x 系列说明属于开发中版本。
 
 | 安装包 | 验证状态 | 下载 |
 | --- | --- | --- |
@@ -19,20 +19,20 @@
 
 ## 功能
 
-以下为 2.2.2 系列的使用说明。
+以下为 2.2.5 系列的使用说明。
 
 - **飞牛桌面集成**：桌面窗口、深浅色标题栏与紧凑布局。
 - **AI 编程**：使用 OpenCode 的会话、项目、文件操作和终端功能。
 - **供应商连接**：使用官方 API Key 和 OpenCode Console / Go 账号授权。
-- **官方设置菜单**：提供偏好设置、外观、通知、项目、工作区、扩展及关于页面。
+- **飞牛设置菜单**：保留偏好设置、外观、通知、快捷键、供应商、模型、扩展、程序更新及关于页面。
 - **自动审批**：使用官方默认自动审批功能，项目可以单独设置权限。
-- **项目记忆**：NAS 保留项目目录；新浏览器或手机 WebView 没有本地记录时，可恢复已保存的项目。默认工作目录为共享目录下的“默认项目”。
+- **项目记忆**：沿用原来的 `OpenCode/projects` 共享目录，恢复有历史会话的项目，包括旧 `.npm` 项目。不再自动创建新的“默认项目”目录；已有文件与会话保持原位置。
 - **数据持久化**：共享目录保存项目，应用数据目录保存配置、授权信息和会话。
 - **两种访问方式**：从飞牛桌面打开（默认端口 `5666`），也可在浏览器独立访问 `http://NAS地址:4096`，使用安装时设置的 Web 密码登录；2.x 的 HTTP 用户名固定为 `opencode`，端口以实际配置为准。
 
 ## 环境要求
 
-- 飞牛 fnOS，**x86_64** 或 **ARM64** 架构，请下载对应架构的安装包。旧版 ARM64 已由用户实机确认安装运行；本次 2.2.2 的 ARM64 包已通过打包与架构检查，尚无该版本的实机反馈。
+- 飞牛 fnOS，**x86_64** 或 **ARM64** 架构，请下载对应架构的安装包。旧版 ARM64 已由用户实机确认安装运行；新版本的 ARM64 实机运行情况仍需单独验证。
 - 使用飞牛管理员账号打开应用。
 - NAS 能访问所选模型供应商；本地模型服务需提供 NAS 可访问的地址。
 
@@ -85,7 +85,7 @@
 
 ```bash
 fnos-opencode-update check
-fnos-opencode-update apply 2.2.2
+fnos-opencode-update apply 2.2.5
 fnos-opencode-update status
 fnos-opencode-update rollback
 ```
@@ -141,7 +141,7 @@ python scripts/build.py
 也可以指定上游版本、架构和适配修订号：
 
 ```bash
-python scripts/build.py 2.2.2 x86_64 --revision 1
+python scripts/build.py 2.2.5 x86_64 --revision 2
 ```
 
 安装包检查需要 Bash；Windows 可使用 Git for Windows 提供的 Bash：

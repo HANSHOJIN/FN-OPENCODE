@@ -6,6 +6,8 @@ import crypto from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { updateAPI } from './update-api.mjs'
 import { entry as adaptEntry, resource as adaptResource } from './adapter.mjs'
+import { recoverProjectIDs, emptyUpgradeProjectIDs } from './projects.mjs'
+import { createEventRelay } from './event-relay.mjs'
 
 const PROTOCOL = JSON.parse(fs.readFileSync(new URL('./protocol.json', import.meta.url), 'utf8'))
 export const PREFIX = PROTOCOL.prefix
@@ -13,8 +15,8 @@ export const COMPATIBILITY = JSON.parse(fs.readFileSync(new URL('./compatibility
 export const UI_SHA256 = COMPATIBILITY.ui.sha256
 export const SETTINGS_SHA256 = COMPATIBILITY.settings[0].sha256
 export const SETTINGS_V2_SHA256 = COMPATIBILITY.settings[1].sha256
-export function patchSettings(source) { return adaptResource(source, COMPATIBILITY) }
-export function patchUI(source) { return adaptEntry(source, COMPATIBILITY) }
+export function patchSettings(source, requestedPath) { return adaptResource(source, COMPATIBILITY, requestedPath) }
+export function patchUI(source, requestedPath) { return adaptEntry(source, COMPATIBILITY, requestedPath) }
 export function stripPrefix(url) {
   const parsed = new URL(url, 'http://gateway.local')
   if (parsed.pathname !== PREFIX && !parsed.pathname.startsWith(PREFIX + '/')) return null
@@ -42,9 +44,10 @@ export function adaptHTML(source) {
   return { html, entry: asset }
 }
 
-export function createGateway({ port, username, password, version, bootstrap }) {
+export function createGateway({ port, username, password, version, bootstrap, workspace = process.env.FNOS_WORKSPACE }) {
   const updateToken = crypto.randomBytes(32).toString('hex')
   const authorization = 'Basic ' + Buffer.from((PROTOCOL.backendUsername || username) + ':' + password).toString('base64')
+  const events = createEventRelay({port,authorization})
   let patched
   let entryPath = COMPATIBILITY.entry
   let webVersion, metadataRequest
@@ -64,19 +67,29 @@ export function createGateway({ port, username, password, version, bootstrap }) 
           chunks.push(chunk)
         }
         const source = Buffer.concat(chunks)
-        patched = patchUI(source)
+        patched = patchUI(source, entryPath)
         webVersion = COMPATIBILITY.web
         if (!webVersion) { patched = undefined; throw new Error('Embedded Web version missing') }
       }
-      let projectHistory = []
+      let projectHistory = [], retiredProjectIDs = []
       try {
         const response = await fetch(`http://127.0.0.1:${port}/api/project`, {headers:{authorization},signal:AbortSignal.timeout(3000)})
         if (response.ok) {
           const projects = await response.json()
-          if (Array.isArray(projects)) projectHistory = projects.filter(item => typeof item.id === 'string' && typeof item.canonical === 'string' && !['.npm','.cache'].includes(path.basename(item.canonical))).slice(0,100).map(item => item.id)
+          let sessions
+          try {
+            const history = await fetch(`http://127.0.0.1:${port}/api/session?limit=5000&order=desc&parentID=null`, {headers:{authorization},signal:AbortSignal.timeout(3000)})
+            if (history.ok) sessions = (await history.json()).data
+          } catch { /* Project discovery does not depend on session history. */ }
+          let emptyDefault = false
+          if (workspace) {
+            try { emptyDefault = fs.readdirSync(path.join(workspace, '默认项目')).length === 0 } catch {}
+          }
+          projectHistory = recoverProjectIDs(projects, sessions, workspace, emptyDefault)
+          retiredProjectIDs = emptyUpgradeProjectIDs(projects, sessions, workspace, emptyDefault)
         }
       } catch { /* The native client will still load projects when the API is ready. */ }
-      return {prefix:PREFIX,package:version,server:state.version,web:webVersion,updateToken,projectHistory,displayVersion:`${version} (Server ${state.version} / Web ${webVersion})`}
+      return {prefix:PREFIX,package:version,server:state.version,web:webVersion,updateToken,projectHistory,retiredProjectIDs,displayVersion:`${version} (Server ${state.version} / Web ${webVersion})`}
     })().finally(() => { metadataRequest = undefined })
     return metadataRequest
   }
@@ -84,10 +97,11 @@ export function createGateway({ port, username, password, version, bootstrap }) 
     const upstreamPath = stripPrefix(req.url)
     if (upstreamPath === null) { res.writeHead(404); res.end(); return }
     if (!admin(req)) { res.writeHead(403, {'Content-Type':'text/plain; charset=utf-8'}); res.end('仅飞牛管理员可使用此应用入口。'); return }
+    if (events.handle(req,res,upstreamPath,req.headers[PROTOCOL.headers.userID.toLowerCase()])) return
     if (upstreamPath.startsWith('/_fnos/update/')) {await updateAPI(req,res,upstreamPath,undefined,updateToken);return}
-    if (['/_fnos/extensions.js', '/_fnos/window-theme.js', '/_fnos/updates.js', '/_fnos/attachment-digest.js'].includes(upstreamPath)) {
+    if (['/_fnos/extensions.js', '/_fnos/window-theme.js', '/_fnos/updates.js', '/_fnos/attachment-digest.js', '/_fnos/event-transport.js', '/_fnos/mobile-keyboard.js'].includes(upstreamPath)) {
       res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'})
-      const file={'/_fnos/window-theme.js':'./window-theme.mjs','/_fnos/updates.js':'./updates.mjs','/_fnos/extensions.js':'./extensions.mjs','/_fnos/attachment-digest.js':'./attachment-digest.mjs'}[upstreamPath]
+      const file={'/_fnos/window-theme.js':'./window-theme.mjs','/_fnos/updates.js':'./updates.mjs','/_fnos/extensions.js':'./extensions.mjs','/_fnos/attachment-digest.js':'./attachment-digest.mjs','/_fnos/event-transport.js':'./event-transport.mjs','/_fnos/mobile-keyboard.js':'./mobile-keyboard.mjs'}[upstreamPath]
       res.end(fs.readFileSync(new URL(file, import.meta.url))); return
     }
     if (upstreamPath === '/_fnos/bootstrap.js') {
@@ -136,11 +150,11 @@ export function createGateway({ port, username, password, version, bootstrap }) 
         try {
           let data = Buffer.concat(chunks)
           if (main && response.statusCode === 200) {
-            const verified = patchUI(data)
+            const verified = patchUI(data, upstreamPath.split('?')[0])
             webVersion = COMPATIBILITY.web
             patched = verified; data = verified
           }
-          else if (settings && response.statusCode === 200) data = patchSettings(data)
+          else if (settings && response.statusCode === 200) data = patchSettings(data, upstreamPath.split('?')[0])
           else if (html && response.statusCode === 200) {
             const adapted = adaptHTML(data.toString('utf8'))
             if (entryPath !== adapted.entry) patched = undefined
@@ -173,6 +187,7 @@ export function createGateway({ port, username, password, version, bootstrap }) 
     })
     remote.on('error', () => socket.destroy()); remote.on('close', () => socket.destroy()); socket.on('error', () => remote.destroy()); socket.on('close', () => remote.destroy())
   })
+  server.once('close', () => events.close())
   return server
 }
 

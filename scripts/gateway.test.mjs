@@ -30,19 +30,20 @@ test('gateway accepts only its declared prefix', () => {
   assert.equal(stripPrefix(PREFIX + '/../private'), null)
 })
 
-test('verified official 2.2.2 UI supports fnOS routing and truthful versions', () => {
+test('verified official UI supports fnOS routing, keyboard batching and truthful versions', () => {
   const code = patchUI(officialUI()).toString()
   assert.ok(code.includes('base:window.__FNOS_OPENCODE__.prefix'))
   assert.ok(code.includes('location.origin+window.__FNOS_OPENCODE__.prefix'))
   assert.ok(code.includes('version:window.__FNOS_OPENCODE__.displayVersion'))
-  assert.ok(code.includes('version:`2.2.2`'), 'Keep the actual upstream version')
+  assert.ok(code.includes('version:`'+COMPATIBILITY.web+'`'), 'Keep the actual upstream version')
+  assert.ok(code.includes('window.__FNOS_OPENCODE__.keyboardInsets()'))
   assert.ok(!code.includes('navigator.serviceWorker.register(`/sw.js`)'))
   assert.throws(() => patchUI(Buffer.from('different build')), /Unsupported/)
 })
 
 test('official attachment IDs support HTTP without Web Crypto', async () => {
   const source = officialAsset(COMPATIBILITY.settings.find(a => a.role === 'router')).toString()
-  const native = source.match(/async function Co\(e\)\{.*?\}(?=async function)/)?.[0]
+  const native = source.match(/async function xo\(e\)\{.*?\}(?=function|async function)/)?.[0]
   assert.ok(native)
   const context = {crypto:{getRandomValues: a => crypto.webcrypto.getRandomValues(a)}, Uint8Array}
   const id = await vm.runInNewContext('(' + native + ')', context)(new File([Buffer.alloc(11264,97)], '项目移交.MD'))
@@ -57,9 +58,9 @@ test('all native settings and router chunks retain their hash gates', () => {
       assert.ok(code.includes('window.__FNOS_OPENCODE__.updatesPanel()'))
       for (const tab of ['extensions','projects','workspaces','providers']) assert.ok(code.includes('value:`'+tab+'`'))
     } else if (item.role === 'settings-route') assert.ok(code.includes('"fnos-updates":!0'))
-    else if (item.role === 'projects') assert.ok(code.includes('window.__FNOS_OPENCODE__.storedProjectIDs(e.scope())'))
-    else if (item.role === 'connection') assert.ok(code.includes('var T=30e3,E=1e3,te=50'))
-    else assert.ok(code.includes('window.__FNOS_OPENCODE__.routeLocation(_n().location)'))
+    else if (item.role === 'projects') assert.ok(code.includes('window.__FNOS_OPENCODE__.projectIDs(e.scope(),e.store.usedProjectIDs[e.scope()])'))
+    else if (item.role === 'connection') assert.ok(code.includes('var E=30e3,D=1e3,O=50'))
+    else assert.ok(code.includes('window.__FNOS_OPENCODE__.routeLocation(yn().location)'))
   }
   assert.throws(() => patchSettings(Buffer.from('different build')), /Unsupported/)
 })
@@ -67,10 +68,10 @@ test('all native settings and router chunks retain their hash gates', () => {
 test('fresh browser storage recovers NAS projects while saved choices and other servers remain isolated', () => {
   const asset = COMPATIBILITY.settings.find(item => item.role === 'projects')
   const code = patchSettings(officialAsset(asset)).toString()
-  const native = code.match(/function V\(e\)\{.*?\}(?=function)/)?.[0]
+  const native = code.match(/function H\(e\)\{.*?\}(?=function)/)?.[0]
   assert.ok(native)
   const recover = scope => scope === 'local' ? ['remembered-project'] : []
-  const create = vm.runInNewContext('(' + native + ')', {window:{__FNOS_OPENCODE__:{storedProjectIDs:recover}}})
+  const create = vm.runInNewContext('(' + native + ')', {window:{__FNOS_OPENCODE__:{projectIDs:(scope,saved)=>saved??recover(scope)}}})
   const state = {usedProjectIDs:{},lastProjectID:{}}
   assert.deepEqual([...create({scope:()=>'local',store:state}).used()], ['remembered-project'])
   assert.deepEqual([...create({scope:()=>'remote-server',store:state}).used()], [])
@@ -82,7 +83,7 @@ test('fresh browser storage recovers NAS projects while saved choices and other 
 
 test('native connection accepts a delayed real handshake, rejects silence and clears its timers', async () => {
   const code = patchSettings(officialAsset(COMPATIBILITY.settings.find(a => a.role === 'connection'))).toString()
-  const native = code.slice(code.indexOf('var T=30e3,E=1e3,te=50'), code.indexOf('function j(e,t)'))
+  const native = code.slice(code.indexOf('var E=30e3,D=1e3,O=50'), code.indexOf('var M=m('))
   assert.ok(native.includes('Event stream did not start with server.connected'))
   const setup = () => {
     let time = 0, sequence = 0, deliver, signal
@@ -95,7 +96,7 @@ test('native connection accepts a delayed real handshake, rejects silence and cl
       setTimeout: (callback, delay) => {const id = ++sequence; timers.set(id, {at: time + delay, callback}); return id},
       clearTimeout: id => timers.delete(id),
     }
-    const create = vm.runInNewContext(native + ';k', context)
+    const create = vm.runInNewContext(native + ';A', context)
     const api = {event: {subscribe: options => ({[Symbol.asyncIterator]: () => ({next: () => {
       signal = options.signal
       return new Promise((resolve, reject) => {
@@ -156,6 +157,11 @@ test('HTTP, SSE and WebSocket forwarding preserve auth and stream bytes', async 
   try {
     assert.equal((await fetch(origin + PREFIX)).status,403)
     assert.equal((await fetch(origin + PREFIX,{headers:{...headers,'X-Trim-Isadmin':'false'}})).status,403)
+    assert.equal((await fetch(origin + PREFIX + '/_fnos/events')).status,403)
+    assert.equal((await fetch(origin + PREFIX + '/_fnos/event-transport.js')).status,403)
+    const transport = await fetch(origin + PREFIX + '/_fnos/event-transport.js',{headers})
+    assert.equal(transport.status,200)
+    assert.ok((await transport.text()).includes('export async function relayEvents'))
     const page = await (await fetch(origin + PREFIX + '/', {headers})).text()
     assert.ok(page.includes(`src="${PREFIX}/_fnos/bootstrap.js"`))
     assert.ok(page.includes(`src="${PREFIX}/assets/index-test.js"`))
@@ -204,7 +210,7 @@ test('renamed module entries still require a verified hash and metadata uses rea
  try {
   assert.equal((await fetch(base+'/',{headers})).status,200)
   const boot=await(await fetch(base+'/_fnos/bootstrap.js',{headers})).text()
-  assert.ok(boot.includes('Server 9.8.7 / Web 2.2.2'))
+  assert.ok(boot.includes('Server 9.8.7 / Web '+COMPATIBILITY.web))
   const metadata=JSON.parse(boot.slice('window.__FNOS_OPENCODE__='.length,boot.indexOf(';\n')))
   assert.match(metadata.updateToken,/^[a-f0-9]{64}$/)
   assert.equal((await fetch(base+'/_fnos/bootstrap.js')).status,403)

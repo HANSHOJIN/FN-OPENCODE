@@ -1,46 +1,99 @@
 import crypto from 'node:crypto'
 
-function change(text, needle, replacement, name) {
-  if (text.split(needle).length !== 2) throw new Error('Upstream adapter anchor changed: ' + name)
-  return text.replace(needle, replacement)
+function problem(message, context) {
+  const error = new Error(message + ' ' + JSON.stringify(context))
+  error.code = 'FNOS_ADAPTER_CHECK'
+  error.details = context
+  return error
 }
-
-function verified(source, expected) {
-  if (crypto.createHash('sha256').update(source).digest('hex') !== expected) throw new Error('Unsupported upstream Web UI; review the gateway adapter')
+const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+function pattern(value) {
+  return value instanceof RegExp ? new RegExp(value.source, value.flags.replace(/g/g, '') + 'g') : new RegExp(escape(value), 'g')
+}
+function one(text, value, name, context) {
+  const regex = pattern(value), hits = [...text.matchAll(regex)]
+  if (hits.length !== 1) throw problem('Upstream adapter anchor changed', {...context,anchor:name,matches:hits.length,expectedMatches:1})
+  return hits[0]
+}
+export function replaceAnchor(text, value, build, name, context = {}) {
+  one(text, value, name, context)
+  return text.replace(pattern(value), build)
+}
+function verified(source, expected, context) {
+  const actualSha256 = crypto.createHash('sha256').update(source).digest('hex')
+  if (actualSha256 !== expected.sha256 || source.length !== expected.size) throw problem('Unsupported upstream Web UI; review the gateway adapter', {
+    ...context,expectedSha256:expected.sha256,actualSha256,expectedSize:expected.size,actualSize:source.length,
+  })
   return source.toString('utf8')
 }
 
-export function entry(source, compatibility) {
-  let text = verified(source, compatibility.ui.sha256)
-  text = change(text, 'e.router??ss},root:t', 'e.router??ss},base:window.__FNOS_OPENCODE__.prefix,root:t', 'router base')
-  text = change(text, 'function MM(){return location.origin}', 'function MM(){return location.origin+window.__FNOS_OPENCODE__.prefix}', 'server URL')
-  text = change(text, 'draftStore:gt(),version:e,openExternal', 'draftStore:gt(),version:window.__FNOS_OPENCODE__.displayVersion,openExternal', 'display version')
-  // An iframe must not install an origin-wide service worker on the fnOS desktop.
-  text = change(text, 'navigator.serviceWorker.register(`/sw.js`)', 'Promise.resolve()', 'iframe service worker')
+export function entry(source, compatibility, requestedPath = compatibility.entry) {
+  const context = {stage:'patchUI',role:'entry',path:requestedPath}
+  let text = verified(source, compatibility.ui, context)
+  const edit = (value, build, name) => {text = replaceAnchor(text,value,build,name,context)}
+  edit(/([\w$]+)\.router\?\?([\w$]+)\},root:([\w$]+)/,
+    (_,config,fallback,root) => `${config}.router??${fallback}},base:window.__FNOS_OPENCODE__.prefix,root:${root}`, 'router base')
+  edit(/function ([\w$]+)\(\)\{return location\.origin\}/,
+    (_,fn) => `function ${fn}(){return location.origin+window.__FNOS_OPENCODE__.prefix}`, 'server URL')
+  edit(/draftStore:([\w$]+)\(\),version:([\w$]+),openExternal/,
+    (_,store) => `draftStore:${store}(),version:window.__FNOS_OPENCODE__.displayVersion,openExternal`, 'display version')
+  edit(/enabled:!!([\w$]+)&&\1\.sdk\.connection\.status\(\)===`connected`/,
+    (_,ctx) => `enabled:!!${ctx}&&(${ctx}.sdk.connection.status()===\`connected\`||window.__FNOS_OPENCODE__.readsEnabled(${ctx}.sdk))`, 'initial session reads independent of event stream')
+  edit('navigator.serviceWorker.register(`/sw.js`)', 'Promise.resolve()', 'iframe service worker')
+  // The approved hash and listener shape gate the callback body. Capture the
+  // component and Solid hooks instead of depending on their minified names.
+  edit(/function ([\w$]+)\(\)\{return ([\w$]+)\(\(\)=>\{let ([\w$]+)=window\.visualViewport;if\(!\3\)return;let ([\w$]+)=document\.documentElement,([\w$]+)=\(\)=>\{[\s\S]*?\};\5\(\),\3\.addEventListener\(`resize`,\5\),window\.addEventListener\(`resize`,\5\),document\.addEventListener\(`focusin`,\5\),document\.addEventListener\(`focusout`,\5\),([\w$]+)\(\(\)=>\{\3\.removeEventListener\(`resize`,\5\),window\.removeEventListener\(`resize`,\5\),document\.removeEventListener\(`focusin`,\5\),document\.removeEventListener\(`focusout`,\5\),\4\.style\.removeProperty\(`--safe-area-inset-bottom`\)\}\)\}\),null\}/,
+    (_,fn,mount,_view,_root,_sync,cleanup) => `function ${fn}(){return ${mount}(()=>${cleanup}(window.__FNOS_OPENCODE__.keyboardInsets())),null}`, 'coalesced keyboard viewport updates')
   return Buffer.from(text)
 }
 
-export function resource(source, compatibility) {
+export function resource(source, compatibility, requestedPath) {
   const digest = crypto.createHash('sha256').update(source).digest('hex')
-  const asset = compatibility.settings.find(item => item.sha256 === digest)
-  if (!asset) throw new Error('Unsupported upstream settings UI')
-  let text = source.toString('utf8')
+  const asset = requestedPath ? compatibility.settings.find(item => item.path === requestedPath) : compatibility.settings.find(item => item.sha256 === digest)
+  if (!asset) throw problem('Unsupported upstream settings UI', {stage:'patchSettings',role:'unknown',path:requestedPath ?? 'unknown',actualSha256:digest,actualSize:source.length})
+  const context = {stage:'patchSettings',role:asset.role,path:asset.path}
+  let text = verified(source, asset, context)
+  const edit = (value,build,name) => {text = replaceAnchor(text,value,build,name,context)}
   if (asset.role === 'connection') {
-    // A WAN/mobile relay can take longer than upstream's two-second deadline.
-    // Keep the native server.connected check; never infer a live stream from HTTP 200.
-    text = change(text, 'var T=2e3,E=1e3,te=50', 'var T=30e3,E=1e3,te=50', 'event stream connection deadline')
-    text = change(text, 'c({status:`connected`,attempt:0,error:void 0})', 'c({status:`connected`,attempt:0,error:void 0}),window.__FNOS_OPENCODE__.connectionStatus(`connected`)', 'clear connection failure notice')
-    text = change(text, 'c({status:`reconnecting`,attempt:r,error:s})', 'c({status:`reconnecting`,attempt:r,error:s}),window.__FNOS_OPENCODE__.connectionStatus(`reconnecting`,s,r)', 'report connection failure')
+    edit(/var ([\w$]+)=2e3,([\w$]+)=1e3,([\w$]+)=50/,
+      (_,timeout,retry,history) => `var ${timeout}=30e3,${retry}=1e3,${history}=50`, 'event stream connection deadline')
+    edit(/([\w$]+)\(\{status:`connected`,attempt:0,error:void 0\}\)/,
+      match => match + ',window.__FNOS_OPENCODE__.connectionStatus(`connected`)', 'clear connection failure notice')
+    edit(/([\w$]+)\(\{status:`reconnecting`,attempt:([\w$]+),error:([\w$]+)\}\)/,
+      (match,_setter,attempt,error) => match + `,window.__FNOS_OPENCODE__.connectionStatus(\`reconnecting\`,${error},${attempt})`, 'report connection failure')
   } else if (asset.role === 'router') {
-    text = change(text, 'yn=()=>_n().location', 'yn=()=>window.__FNOS_OPENCODE__.routeLocation(_n().location)', 'application route location')
+    edit(/([\w$]+)=\(\)=>([\w$]+)\(\)\.location(?=,)/,
+      (_,accessor,router) => `${accessor}=()=>window.__FNOS_OPENCODE__.routeLocation(${router}().location)`, 'application route location')
+    edit(/([\w$]+)=\(\)=>([\w$]+)\.connection\.status\(\)===`connected`,/,
+      (match,ready,sdk) => match + `__fnosReadReady=()=>${ready}()||window.__FNOS_OPENCODE__.readsEnabled(${sdk}),`, 'initial HTTP readiness')
+    edit(/(\.\.\.[\w$]+\.globalConfig\(\),enabled:)([\w$]+)\(\)/,
+      (_,prefix) => prefix + '__fnosReadReady()', 'initial config read')
+    edit(/(\.\.\.[\w$]+\.path\(\),enabled:)([\w$]+)\(\)/,
+      (_,prefix) => prefix + '__fnosReadReady()', 'initial directory read')
+    edit(/Date\.now\(\)\),enabled:([\w$]+)\(\)(\}\)\)),([\w$]+)=([\w$]+)\(\{paused:/,
+      (_,ready,close,variable,constructor) => `Date.now()),enabled:__fnosReadReady()${close},${variable}=${constructor}({paused:`, 'initial project read')
+    edit(/([\w$]+)=([\w$]+)\(\{owner:([\w$]+),connected:([\w$]+),scope:([\w$]+)\.scope/,
+      (_,variable,constructor,owner,_ready,sdk) => `${variable}=${constructor}({owner:${owner},connected:__fnosReadReady,scope:${sdk}.scope`, 'directory read readiness')
+    edit(/onBootstrap:([\w$]+)=>\{([\w$]+)\(\)&&([\w$]+)\(\1\)\}/,
+      (_,directory,_ready,bootstrap) => `onBootstrap:${directory}=>{__fnosReadReady()&&${bootstrap}(${directory})}`, 'directory bootstrap without event stream')
   } else if (asset.role === 'projects') {
-    text = change(text, 'e.store.usedProjectIDs[e.scope()]??[]', 'e.store.usedProjectIDs[e.scope()]??window.__FNOS_OPENCODE__.storedProjectIDs(e.scope())', 'project recovery for a new browser store')
+    edit(/([\w$]+)\.store\.usedProjectIDs\[\1\.scope\(\)\]\?\?\[\]/,
+      (_,state) => `window.__FNOS_OPENCODE__.projectIDs(${state}.scope(),${state}.store.usedProjectIDs[${state}.scope()])`, 'recover historical and upgrade-selected projects')
   } else if (asset.role === 'settings-route') {
-    text = change(text, 'zt={general:!0,appearance:!0', 'zt={"fnos-updates":!0,general:!0,appearance:!0', 'program update route')
+    edit(/([\w$]+)=\{general:!0,appearance:!0/,
+      (_,routes) => `${routes}={"fnos-updates":!0,general:!0,appearance:!0`, 'program update route')
+    edit('projects:!0,workspaces:!0,providers:!0,models:!0,extensions:!0,servers:!0,experimental:!0,about:!0',
+      'providers:!0,models:!0,extensions:!0,about:!0', 'limit fnOS settings routes')
   } else if (asset.role === 'settings') {
-    text = change(text, 'items:[...Cs.map', 'items:[{value:`fnos-updates`,icon:J.about,label:`程序更新`},...Cs.map', 'program update navigation')
-    const panel = 'd(Q.Content,{value:`about`,class:`settings-panel settings-about`'
-    text = change(text, panel, 'd(Q.Content,{value:`fnos-updates`,class:`settings-panel`,get children(){return window.__FNOS_OPENCODE__.updatesPanel()}}),' + panel, 'program update panel')
-  } else throw new Error('Unknown adapter resource role')
+    // Resolve the About array and its icon from semantic labels, avoiding the
+    // similarly shaped project group and stale references to icon object names.
+    const about = one(text,/([\w$]+)=\[\{value:`about`,icon:([\w$]+)\.about,label:`settings.tab.about`\}\]/,'about navigation definition',context)
+    edit(new RegExp('items:\\[\\.\\.\\.'+escape(about[1])+'\\.map'),
+      match => `items:[{value:\`fnos-updates\`,icon:${about[2]}.about,label:\`程序更新\`},` + match.slice('items:['.length), 'program update navigation')
+    edit(/get groups\(\)\{return ([\w$]+)\(\)\}/,
+      (_,groups) => `get groups(){return window.__FNOS_OPENCODE__.settingsGroups(${groups}())}`, 'limit fnOS settings navigation')
+    edit(/([\w$]+)\(([\w$]+)\.Content,\{value:`about`,class:`settings-panel settings-about`/,
+      (match,factory,tabs) => `${factory}(${tabs}.Content,{value:\`fnos-updates\`,class:\`settings-panel\`,get children(){return window.__FNOS_OPENCODE__.updatesPanel()}}),` + match, 'program update panel')
+  } else throw problem('Unknown adapter resource role',context)
   return Buffer.from(text)
 }

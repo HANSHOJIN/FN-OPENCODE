@@ -11,6 +11,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import urllib.request
@@ -92,12 +93,26 @@ def validate_fpk(path):
 
 def build():
     ap = argparse.ArgumentParser()
-    ap.add_argument('version', nargs='?', default='2.2.2')
+    ap.add_argument('version', nargs='?', default='2.2.5')
     ap.add_argument('arch', nargs='?', choices=['x86_64', 'arm64'], default='x86_64')
     ap.add_argument('--revision', type=int, default=1)
     args = ap.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+', args.version) or args.revision < 1:
         ap.error('Use a stable numeric version and a positive revision')
+    reviewed = json.loads((ROOT / 'opencode-fnos/app/gateway/compatibility.json').read_text('utf-8'))
+    if args.version != reviewed['server']:
+        raise RuntimeError('Build version does not match the reviewed gateway adapter')
+    node = shutil.which('node')
+    if not node:
+        raise RuntimeError('Node.js is required for the mandatory adapter preflight')
+    subprocess.run([sys.executable, str(ROOT / 'scripts/capture-ui.py')], cwd=ROOT, check=True)
+    adapter_check = subprocess.run([node, str(ROOT / 'scripts/check-adapter.mjs')], cwd=ROOT, capture_output=True, text=True)
+    if adapter_check.returncode:
+        raise RuntimeError(adapter_check.stderr.strip() or 'Adapter preflight failed')
+    adapter_report = json.loads(adapter_check.stdout)
+    if not adapter_report.get('passed'):
+        raise RuntimeError('Adapter preflight did not report success')
+    print('Adapter preflight passed: ' + str(len(adapter_report['resources'])) + ' resources (hash, anchors, syntax)', flush=True)
     asset_name, fnos_platform, elf_machine = TARGETS[args.arch]
     metadata = ROOT / 'downloads' / f'release-v{args.version}.json'
     if not metadata.exists():
@@ -179,6 +194,7 @@ def build():
     result.with_suffix('.fpk.sha256').write_text(f'{digest(result)}  {result.name}\n', encoding='utf-8')
     evidence = {'upstream_tag': release['tag_name'], 'upstream_asset': asset['name'], 'upstream_sha256': actual, 'binary_sha256': digest(destination), 'fpk_sha256': digest(result), 'fnpack_version': '1.2.3', 'fnpack_sha256': digest(fnpack), 'pnpm_version': pnpm_version, 'pnpm_integrity': integrity, 'maven_version': maven_version, 'maven_sha512': maven_checksum.read_text().split()[0].lower(), 'unix_permissions_normalized': True, 'fnOS_device_tested': False}
     evidence.update(architecture=args.arch, fnos_platform=fnos_platform, elf_machine=elf_machine, fpk_container='gzip+tar', app_tgz_md5=package_checksum, fpk_internal_checksum_verified=True)
+    evidence['adapter_preflight'] = adapter_report
     result.with_suffix('.build.json').write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
     print(result)
 
