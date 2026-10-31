@@ -15,7 +15,7 @@ function fixture(previous = '') {
   Object.assign(view,{height:800,scale:1})
   const root={style:{getPropertyValue:()=>value,getPropertyPriority:()=>previous?'important':'',setProperty(_key,next){value=next;writes++},removeProperty(){value='';writes++}},get clientHeight(){reads++;return 800}}
   Object.assign(doc,{documentElement:root,activeElement:new Element()})
-  Object.assign(win,{document:doc,visualViewport:view,HTMLElement:Element,requestAnimationFrame:fn=>{frames.set(++id,fn);return id},cancelAnimationFrame:frame=>frames.delete(frame)})
+  Object.assign(win,{innerHeight:800,document:doc,visualViewport:view,HTMLElement:Element,requestAnimationFrame:fn=>{frames.set(++id,fn);return id},cancelAnimationFrame:frame=>frames.delete(frame)})
   return {win,doc,view,frames,reads:()=>reads,writes:()=>writes,value:()=>value,
     flush(){const batch=[...frames.values()];frames.clear();batch.forEach(fn=>fn())}}
 }
@@ -26,7 +26,7 @@ test('a keyboard animation burst performs one measurement and changes style only
   f.doc.activeElement.isContentEditable=true;f.view.height=480
   for(let i=0;i<100;i++){f.view.emit('resize');f.win.emit('resize');f.doc.emit('focusin')}
   assert.equal(f.frames.size,1)
-  f.flush();assert.equal(f.reads(),1);assert.equal(f.writes(),1);assert.equal(f.value(),'0px')
+  f.flush();assert.equal(f.reads(),0);assert.equal(f.writes(),1);assert.equal(f.value(),'0px')
   f.view.emit('resize');f.win.emit('resize');f.flush();assert.equal(f.writes(),1)
   f.doc.activeElement.isContentEditable=false;f.doc.emit('focusout');f.flush()
   assert.equal(f.value(),'');assert.equal(f.writes(),2)

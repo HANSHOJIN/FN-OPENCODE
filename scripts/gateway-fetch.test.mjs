@@ -12,6 +12,18 @@ function environment(fetcher, extra = {}) {
   return {...context,calls}
 }
 
+test('fnOS top-level WebViews install the compact mobile titlebar without an iframe', () => {
+  const styles = []
+  const document = {head: {append: node => styles.push(node)}, createElement: () => ({}), addEventListener() {}}
+  const env = environment(undefined, {document})
+  assert.equal(env.window.frameElement, undefined)
+  assert.equal(styles.length, 1)
+  assert.equal(styles[0].id, 'fnos-mobile-titlebar')
+  assert.match(styles[0].textContent, /@media\(max-width:767px\)/)
+  assert.match(styles[0].textContent, /:not\(\.order-last\)/)
+  assert.match(styles[0].textContent, /height:44px!important/)
+})
+
 test('connection failures become visible after retries and disappear only on a real reconnect', () => {
   const visible = []
   const document = {addEventListener() {}, body: {append: node => visible.push(node)}, createElement: () => ({

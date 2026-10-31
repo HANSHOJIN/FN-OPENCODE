@@ -4,7 +4,12 @@
   window.__FNOS_OPENCODE__.keyboardInsets = () => {
     let disposed = false, cleanup
     import(prefix + '/_fnos/mobile-keyboard.js').then(module => {
-      if (!disposed) cleanup = module.attachKeyboardInsets()
+      if (disposed) return
+      let motion = true
+      try { motion = localStorage.getItem('fnos.keyboardMotion') !== 'off' } catch {}
+      const insets = module.attachKeyboardInsets()
+      const animation = motion ? module.attachKeyboardMotion() : () => {}
+      cleanup = () => { animation(); insets() }
     }).catch(() => {})
     return () => {disposed = true; cleanup?.()}
   }
@@ -97,14 +102,16 @@
       },
     }
   }
-  if (window.frameElement) {
-    // fnOS already places this iframe below its native mobile header. Do not
-    // count the outer WebView's top safe area again inside the app titlebar.
-    // Keep standalone browsers and the bottom titlebar's safe area unchanged.
+  if (prefix === '/app/opencode-fnos' && typeof document !== 'undefined' && document.head) {
+    // The gateway is also opened as a top-level mobile WebView, without an
+    // iframe. Scope to the injected fnOS gateway, not frameElement presence.
+    // Independent port 4096 does not load this bootstrap.
     const style = document.createElement('style')
     style.id = 'fnos-mobile-titlebar'
     style.textContent = '@media(max-width:767px){[data-slot="titlebar-v2"]:not(.order-last){height:44px!important;min-height:44px!important;padding-top:8px!important;padding-bottom:8px!important;box-sizing:border-box}}'
     document.head.append(style)
+  }
+  if (window.frameElement) {
     import(prefix + '/_fnos/window-theme.js')
       .then(module => module.applyWindowTheme()).catch(() => {})
   }
