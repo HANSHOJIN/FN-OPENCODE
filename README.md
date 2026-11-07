@@ -15,7 +15,7 @@
 | x86_64 | 2.2.6-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.6-1/OpenCode-fnOS-2.2.6-1-x86_64.fpk) |
 | ARM64 | 2.2.6-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.6-1/OpenCode-fnOS-2.2.6-1-arm64.fpk) |
 
-![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
+![OpenCode 在飞牛 fnOS 中的运行界面（项目名称已替换为示例）](assets/opencode-fnos-screenshot-redacted.png)
 
 ## 功能
 
