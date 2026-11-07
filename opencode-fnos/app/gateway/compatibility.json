@@ -1,41 +1,42 @@
 {
-  "server": "2.2.5",
-  "web": "2.2.5",
-  "entry": "/_assets/index-BDq5uAY5.js",
+  "package": "2.2.6-1",
+  "server": "2.2.6",
+  "web": "2.2.6",
+  "entry": "/_assets/index-C8GATERM.js",
   "ui": {
-    "sha256": "eb530039f18c528f73d1e48e1a967b59388e16c6f6ab1d54129f50cd087ce0ef",
-    "size": 581675
+    "sha256": "94fd0d6d004a5addc1b18746fb6aa650879498e2e0c108060ad42284833f1a1b",
+    "size": 915749
   },
   "settings": [
     {
-      "path": "/_assets/solid-eTxPEHmU.js",
+      "path": "/_assets/solid-DT7DNceT.js",
       "role": "connection",
-      "sha256": "1aad14bae2b1b7c71e5a46d764669b8f246000007dbadecdeb817141d739328d",
-      "size": 43258
+      "sha256": "dd8e7b25d447967d48c85b12d3b936197721468a96d781b53491068195bb9a4a",
+      "size": 43321
     },
     {
-      "path": "/_assets/shell-Jg99fimx.js",
+      "path": "/_assets/shell-DRZ6ljh5.js",
       "role": "settings",
-      "sha256": "369c56b15e2445d230b4db3a18b94ab648669f2e542f5893d7c2f6b3a08abb85",
-      "size": 144487
+      "sha256": "bdb36bfd8411027748472a7bd062779570d4996a5e452190614c83aafb219906",
+      "size": 173116
     },
     {
-      "path": "/_assets/host-apis-2cTShqml.js",
+      "path": "/_assets/host-apis-DI7PSkaQ.js",
       "role": "settings-route",
-      "sha256": "c02821acb91c58827832ac406463b94999f3d9e8135111f87b969c165ed659b2",
-      "size": 47727
+      "sha256": "6faa4326b219fb7c47e714102ee798f0eb12df0f2e582eb31752d6a8f8d22b04",
+      "size": 80388
     },
     {
-      "path": "/_assets/current-CS21lgrW.js",
+      "path": "/_assets/current-DxanX2-J.js",
       "role": "router",
-      "sha256": "a1027a0658e7b8307bef9a6fc2e023da1fd3f732a77770bbf65059ec7414576d",
-      "size": 132370
+      "sha256": "db3253d8b2b713c22fa4c596de2d8e2114fef80728ec11b148da088405d43937",
+      "size": 230290
     },
     {
-      "path": "/_assets/health-CIIwRQf1.js",
+      "path": "/_assets/health-DxdJD7tP.js",
       "role": "projects",
-      "sha256": "68baf05cc11d3bf1518889f5561d557f040fee5a8ff0571a11fd9837ad3d441c",
-      "size": 8594
+      "sha256": "696970142d0a55793c6c299124d094731ec77b376bb6958747dc1a448edf40fe",
+      "size": 14998
     }
   ]
 }

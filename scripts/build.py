@@ -93,7 +93,7 @@ def validate_fpk(path):
 
 def build():
     ap = argparse.ArgumentParser()
-    ap.add_argument('version', nargs='?', default='2.2.5')
+    ap.add_argument('version', nargs='?', default='2.2.6')
     ap.add_argument('arch', nargs='?', choices=['x86_64', 'arm64'], default='x86_64')
     ap.add_argument('--revision', type=int, default=1)
     args = ap.parse_args()

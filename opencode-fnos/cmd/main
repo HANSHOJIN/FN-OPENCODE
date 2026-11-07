@@ -4,6 +4,13 @@ prepare
 pidfile="$TRIM_PKGVAR/run/server.pid"
 exec 9>"$TRIM_PKGVAR/run/lifecycle.lock"
 flock -x 9
+runtime_command() {
+ local expected
+ expected=$(readlink -f "$TRIM_APPDEST/lib/runtime.py") || return 1
+ # App Center may use /var/apps/.../target while the process was launched
+ # through the real volume path. Both names identify the same runtime script.
+ tr '\0' '\n' < "/proc/$pid/cmdline" | grep -Fxq -e "$TRIM_APPDEST/lib/runtime.py" -e "$expected"
+}
 alive() {
  [[ -r $pidfile ]] || return 1
  read -r pid birth < "$pidfile"
@@ -16,7 +23,7 @@ alive() {
   # fnOS can deny same-UID access to /proc/exe for an app-center child.
   # Keep owner, full command, birth time and process-group checks in that case.
   [[ -z $executable || $executable == "$(readlink -f "$(command -v python3)")" ]] || return 1
-  tr '\0' '\n' < "/proc/$pid/cmdline" | grep -Fxq "$TRIM_APPDEST/lib/runtime.py" || return 1
+  runtime_command || return 1
  fi
  local statline rest
  statline=$(cat "/proc/$pid/stat"); rest=${statline##*) }
@@ -42,7 +49,7 @@ case ${1:-} in
   pid=$!
   for ((i=0;i<10;i++)); do
    [[ -r /proc/$pid/stat ]] || break
-   if tr '\0' '\n' < "/proc/$pid/cmdline" | grep -Fxq "$TRIM_APPDEST/lib/runtime.py"; then break; fi
+   if runtime_command; then break; fi
    sleep 1
   done
   if [[ -r /proc/$pid/stat ]]; then

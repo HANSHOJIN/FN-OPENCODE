@@ -35,7 +35,7 @@ test('verified official UI supports fnOS routing, keyboard batching and truthful
   assert.ok(code.includes('base:window.__FNOS_OPENCODE__.prefix'))
   assert.ok(code.includes('location.origin+window.__FNOS_OPENCODE__.prefix'))
   assert.ok(code.includes('version:window.__FNOS_OPENCODE__.displayVersion'))
-  assert.ok(code.includes('version:`'+COMPATIBILITY.web+'`'), 'Keep the actual upstream version')
+  assert.ok(code.includes('`'+COMPATIBILITY.web+'`'), 'Keep the actual upstream version')
   assert.ok(code.includes('window.__FNOS_OPENCODE__.keyboardInsets()'))
   assert.ok(!code.includes('navigator.serviceWorker.register(`/sw.js`)'))
   assert.throws(() => patchUI(Buffer.from('different build')), /Unsupported/)
@@ -43,7 +43,7 @@ test('verified official UI supports fnOS routing, keyboard batching and truthful
 
 test('official attachment IDs support HTTP without Web Crypto', async () => {
   const source = officialAsset(COMPATIBILITY.settings.find(a => a.role === 'router')).toString()
-  const native = source.match(/async function xo\(e\)\{.*?\}(?=function|async function)/)?.[0]
+  const native = source.match(/async function [\w$]+\(e\)\{let t=crypto\.subtle\?.*?\}(?=function|async function)/)?.[0]
   assert.ok(native)
   const context = {crypto:{getRandomValues: a => crypto.webcrypto.getRandomValues(a)}, Uint8Array}
   const id = await vm.runInNewContext('(' + native + ')', context)(new File([Buffer.alloc(11264,97)], '项目移交.MD'))
@@ -59,8 +59,8 @@ test('all native settings and router chunks retain their hash gates', () => {
       for (const tab of ['extensions','projects','workspaces','providers']) assert.ok(code.includes('value:`'+tab+'`'))
     } else if (item.role === 'settings-route') assert.ok(code.includes('"fnos-updates":!0'))
     else if (item.role === 'projects') assert.ok(code.includes('window.__FNOS_OPENCODE__.projectIDs(e.scope(),e.store.usedProjectIDs[e.scope()])'))
-    else if (item.role === 'connection') assert.ok(code.includes('var E=30e3,D=1e3,O=50'))
-    else assert.ok(code.includes('window.__FNOS_OPENCODE__.routeLocation(yn().location)'))
+    else if (item.role === 'connection') assert.match(code,/var [\w$]+=30e3,[\w$]+=1e3,[\w$]+=50/)
+    else assert.match(code,/window\.__FNOS_OPENCODE__\.routeLocation\([\w$]+\(\)\.location\)/)
   }
   assert.throws(() => patchSettings(Buffer.from('different build')), /Unsupported/)
 })
@@ -68,7 +68,7 @@ test('all native settings and router chunks retain their hash gates', () => {
 test('fresh browser storage recovers NAS projects while saved choices and other servers remain isolated', () => {
   const asset = COMPATIBILITY.settings.find(item => item.role === 'projects')
   const code = patchSettings(officialAsset(asset)).toString()
-  const native = code.match(/function H\(e\)\{.*?\}(?=function)/)?.[0]
+  const native = code.match(/function [\w$]+\(e\)\{let t=\(\)=>window\.__FNOS_OPENCODE__\.projectIDs\(.*?\}(?=function)/)?.[0]
   assert.ok(native)
   const recover = scope => scope === 'local' ? ['remembered-project'] : []
   const create = vm.runInNewContext('(' + native + ')', {window:{__FNOS_OPENCODE__:{projectIDs:(scope,saved)=>saved??recover(scope)}}})
@@ -83,7 +83,9 @@ test('fresh browser storage recovers NAS projects while saved choices and other 
 
 test('native connection accepts a delayed real handshake, rejects silence and clears its timers', async () => {
   const code = patchSettings(officialAsset(COMPATIBILITY.settings.find(a => a.role === 'connection'))).toString()
-  const native = code.slice(code.indexOf('var E=30e3,D=1e3,O=50'), code.indexOf('var M=m('))
+  const begin=code.search(/var [\w$]+=30e3,[\w$]+=1e3,[\w$]+=50/)
+  const native = code.slice(begin,code.indexOf('var ',begin+4))
+  const factory=code.match(/createClientConnection:\(\)=>([\w$]+)/)[1]
   assert.ok(native.includes('Event stream did not start with server.connected'))
   const setup = () => {
     let time = 0, sequence = 0, deliver, signal
@@ -91,12 +93,12 @@ test('native connection accepts a delayed real handshake, rejects silence and cl
     const context = {
       AbortController, Error, Date: {now: () => time},
       l: value => [value, next => Object.assign(value, next)],
-      i: callback => callback(), r: callback => cleanups.push(callback),
+      r: callback => callback(), t: callback => cleanups.push(callback),
       window: {__FNOS_OPENCODE__: {connectionStatus: (...args) => notices.push(args)}},
       setTimeout: (callback, delay) => {const id = ++sequence; timers.set(id, {at: time + delay, callback}); return id},
       clearTimeout: id => timers.delete(id),
     }
-    const create = vm.runInNewContext(native + ';A', context)
+    const create = vm.runInNewContext(native + ';'+factory, context)
     const api = {event: {subscribe: options => ({[Symbol.asyncIterator]: () => ({next: () => {
       signal = options.signal
       return new Promise((resolve, reject) => {
@@ -212,9 +214,9 @@ test('renamed module entries still require a verified hash and metadata uses rea
   const boot=await(await fetch(base+'/_fnos/bootstrap.js',{headers})).text()
   assert.ok(boot.includes('Server 9.8.7 / Web '+COMPATIBILITY.web))
   const metadata=JSON.parse(boot.slice('window.__FNOS_OPENCODE__='.length,boot.indexOf(';\n')))
-  assert.match(metadata.updateToken,/^[a-f0-9]{64}$/)
+   assert.equal(metadata.updateToken,undefined)
   assert.equal((await fetch(base+'/_fnos/bootstrap.js')).status,403)
-  assert.equal((await fetch(base+'/_fnos/update/request',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({action:'rollback'})})).status,403)
+  assert.equal((await fetch(base+'/_fnos/update/request',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({action:'rollback'})})).status,410)
   assert.equal((await fetch(base+'/assets/index-renamed.js',{headers})).status,200)
   assert.equal((await fetch(base+'/assets/index-lazy.js',{headers})).status,200)
   broken=true

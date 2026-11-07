@@ -2,7 +2,6 @@ import http from 'node:http'
 import net from 'node:net'
 import fs from 'node:fs'
 import path from 'node:path'
-import crypto from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { updateAPI } from './update-api.mjs'
 import { entry as adaptEntry, resource as adaptResource } from './adapter.mjs'
@@ -45,7 +44,6 @@ export function adaptHTML(source) {
 }
 
 export function createGateway({ port, username, password, version, bootstrap, workspace = process.env.FNOS_WORKSPACE }) {
-  const updateToken = crypto.randomBytes(32).toString('hex')
   const authorization = 'Basic ' + Buffer.from((PROTOCOL.backendUsername || username) + ':' + password).toString('base64')
   const events = createEventRelay({port,authorization})
   let patched
@@ -89,7 +87,7 @@ export function createGateway({ port, username, password, version, bootstrap, wo
           retiredProjectIDs = emptyUpgradeProjectIDs(projects, sessions, workspace, emptyDefault)
         }
       } catch { /* The native client will still load projects when the API is ready. */ }
-      return {prefix:PREFIX,package:version,server:state.version,web:webVersion,updateToken,projectHistory,retiredProjectIDs,displayVersion:`${version} (Server ${state.version} / Web ${webVersion})`}
+      return {prefix:PREFIX,package:version,server:state.version,web:webVersion,projectHistory,retiredProjectIDs,displayVersion:`${version} (Server ${state.version} / Web ${webVersion})`}
     })().finally(() => { metadataRequest = undefined })
     return metadataRequest
   }
@@ -98,7 +96,7 @@ export function createGateway({ port, username, password, version, bootstrap, wo
     if (upstreamPath === null) { res.writeHead(404); res.end(); return }
     if (!admin(req)) { res.writeHead(403, {'Content-Type':'text/plain; charset=utf-8'}); res.end('仅飞牛管理员可使用此应用入口。'); return }
     if (events.handle(req,res,upstreamPath,req.headers[PROTOCOL.headers.userID.toLowerCase()])) return
-    if (upstreamPath.startsWith('/_fnos/update/')) {await updateAPI(req,res,upstreamPath,undefined,updateToken);return}
+    if (upstreamPath.startsWith('/_fnos/update/')) {await updateAPI(req,res,upstreamPath);return}
     if (['/_fnos/extensions.js', '/_fnos/window-theme.js', '/_fnos/updates.js', '/_fnos/attachment-digest.js', '/_fnos/event-transport.js', '/_fnos/mobile-keyboard.js'].includes(upstreamPath)) {
       res.writeHead(200, {'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'})
       const file={'/_fnos/window-theme.js':'./window-theme.mjs','/_fnos/updates.js':'./updates.mjs','/_fnos/extensions.js':'./extensions.mjs','/_fnos/attachment-digest.js':'./attachment-digest.mjs','/_fnos/event-transport.js':'./event-transport.mjs','/_fnos/mobile-keyboard.js':'./mobile-keyboard.mjs'}[upstreamPath]

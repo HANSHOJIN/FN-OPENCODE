@@ -44,15 +44,15 @@ export async function validate(port, etc, version) {
     return Buffer.concat(chunks)
   }
   stage='health'
-  let healthy = false
+  let healthy = false, lastHealthError
   for (let i=0;i<30;i++) {
     try {
       const health=JSON.parse((await get('/api/info')).toString())
       if (health.version !== version || !Number.isInteger(health.pid) || health.pid <= 0) throw new Error('Candidate version mismatch')
       healthy=true;break
-    } catch {await new Promise(resolve=>setTimeout(resolve,500))}
+    } catch(error) {lastHealthError=error.message;await new Promise(resolve=>setTimeout(resolve,500))}
   }
-  if (!healthy) throw new Error('Candidate unavailable')
+  if (!healthy) throw new Error('Candidate unavailable: '+String(lastHealthError||'unknown error').slice(0,240))
   console.error('Preflight: health and version verified')
   stage='authentication'
   const denied=await fetch(base+'/api/info',{signal:AbortSignal.timeout(5000),redirect:'error'})

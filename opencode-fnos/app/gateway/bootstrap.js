@@ -4,12 +4,7 @@
   window.__FNOS_OPENCODE__.keyboardInsets = () => {
     let disposed = false, cleanup
     import(prefix + '/_fnos/mobile-keyboard.js').then(module => {
-      if (disposed) return
-      let motion = true
-      try { motion = localStorage.getItem('fnos.keyboardMotion') !== 'off' } catch {}
-      const insets = module.attachKeyboardInsets()
-      const animation = motion ? module.attachKeyboardMotion() : () => {}
-      cleanup = () => { animation(); insets() }
+      if (!disposed) cleanup = module.attachKeyboardInsets()
     }).catch(() => {})
     return () => {disposed = true; cleanup?.()}
   }

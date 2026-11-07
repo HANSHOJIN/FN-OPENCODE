@@ -37,8 +37,10 @@ export function entry(source, compatibility, requestedPath = compatibility.entry
     (_,fn) => `function ${fn}(){return location.origin+window.__FNOS_OPENCODE__.prefix}`, 'server URL')
   edit(/draftStore:([\w$]+)\(\),version:([\w$]+),openExternal/,
     (_,store) => `draftStore:${store}(),version:window.__FNOS_OPENCODE__.displayVersion,openExternal`, 'display version')
-  edit(/enabled:!!([\w$]+)&&\1\.sdk\.connection\.status\(\)===`connected`/,
-    (_,ctx) => `enabled:!!${ctx}&&(${ctx}.sdk.connection.status()===\`connected\`||window.__FNOS_OPENCODE__.readsEnabled(${ctx}.sdk))`, 'initial session reads independent of event stream')
+  edit(/connected:([\w$]+)\?\.sdk\.connection\.status\(\)===`connected`(?=,projectsReady:)/,
+    (_,ctx) => `connected:(${ctx}?.sdk.connection.status()===\`connected\`||window.__FNOS_OPENCODE__.readsEnabled(${ctx}?.sdk))`, 'initial home reads independent of event stream')
+  edit(/if\(([\w$]+)\.server\.focusedContext\(\)\?\.sdk\.connection\.status\(\)===`connected`\)return`connected`/,
+    (_,home) => `if(${home}.server.focusedContext()?.sdk.connection.status()===\`connected\`||window.__FNOS_OPENCODE__.readsEnabled(${home}.server.focusedContext()?.sdk))return\`connected\``, 'initial home session list')
   edit('navigator.serviceWorker.register(`/sw.js`)', 'Promise.resolve()', 'iframe service worker')
   // The approved hash and listener shape gate the callback body. Capture the
   // component and Solid hooks instead of depending on their minified names.
@@ -66,16 +68,12 @@ export function resource(source, compatibility, requestedPath) {
       (_,accessor,router) => `${accessor}=()=>window.__FNOS_OPENCODE__.routeLocation(${router}().location)`, 'application route location')
     edit(/([\w$]+)=\(\)=>([\w$]+)\.connection\.status\(\)===`connected`,/,
       (match,ready,sdk) => match + `__fnosReadReady=()=>${ready}()||window.__FNOS_OPENCODE__.readsEnabled(${sdk}),`, 'initial HTTP readiness')
-    edit(/(\.\.\.[\w$]+\.globalConfig\(\),enabled:)([\w$]+)\(\)/,
+    edit(/(queries:\[\{\.\.\.[\w$]+\([\w$]+\.scope\),enabled:)[\w$]+\(\)/,
       (_,prefix) => prefix + '__fnosReadReady()', 'initial config read')
-    edit(/(\.\.\.[\w$]+\.path\(\),enabled:)([\w$]+)\(\)/,
+    edit(/(\.\.\.[\w$]+\([\w$]+\.scope,null,[\w$]+\.api\.location\),enabled:)[\w$]+\(\)/,
       (_,prefix) => prefix + '__fnosReadReady()', 'initial directory read')
-    edit(/Date\.now\(\)\),enabled:([\w$]+)\(\)(\}\)\)),([\w$]+)=([\w$]+)\(\{paused:/,
-      (_,ready,close,variable,constructor) => `Date.now()),enabled:__fnosReadReady()${close},${variable}=${constructor}({paused:`, 'initial project read')
-    edit(/([\w$]+)=([\w$]+)\(\{owner:([\w$]+),connected:([\w$]+),scope:([\w$]+)\.scope/,
-      (_,variable,constructor,owner,_ready,sdk) => `${variable}=${constructor}({owner:${owner},connected:__fnosReadReady,scope:${sdk}.scope`, 'directory read readiness')
-    edit(/onBootstrap:([\w$]+)=>\{([\w$]+)\(\)&&([\w$]+)\(\1\)\}/,
-      (_,directory,_ready,bootstrap) => `onBootstrap:${directory}=>{__fnosReadReady()&&${bootstrap}(${directory})}`, 'directory bootstrap without event stream')
+    edit(/Date\.now\(\)\),enabled:[\w$]+\(\)(\}\)\)),([\w$]+)=([\w$]+)\(\{owner:/,
+      (_,close,variable,constructor) => `Date.now()),enabled:__fnosReadReady()${close},${variable}=${constructor}({owner:`, 'initial project read')
   } else if (asset.role === 'projects') {
     edit(/([\w$]+)\.store\.usedProjectIDs\[\1\.scope\(\)\]\?\?\[\]/,
       (_,state) => `window.__FNOS_OPENCODE__.projectIDs(${state}.scope(),${state}.store.usedProjectIDs[${state}.scope()])`, 'recover historical and upgrade-selected projects')
@@ -88,8 +86,8 @@ export function resource(source, compatibility, requestedPath) {
     // Resolve the About array and its icon from semantic labels, avoiding the
     // similarly shaped project group and stale references to icon object names.
     const about = one(text,/([\w$]+)=\[\{value:`about`,icon:([\w$]+)\.about,label:`settings.tab.about`\}\]/,'about navigation definition',context)
-    edit(new RegExp('items:\\[\\.\\.\\.'+escape(about[1])+'\\.map'),
-      match => `items:[{value:\`fnos-updates\`,icon:${about[2]}.about,label:\`程序更新\`},` + match.slice('items:['.length), 'program update navigation')
+    edit(new RegExp('\\.\\.\\.'+escape(about[1])+'\\.map'),
+      match => `{value:\`fnos-updates\`,icon:${about[2]}.about,label:\`程序更新\`},` + match, 'program update navigation')
     edit(/get groups\(\)\{return ([\w$]+)\(\)\}/,
       (_,groups) => `get groups(){return window.__FNOS_OPENCODE__.settingsGroups(${groups}())}`, 'limit fnOS settings navigation')
     edit(/([\w$]+)\(([\w$]+)\.Content,\{value:`about`,class:`settings-panel settings-about`/,

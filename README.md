@@ -6,20 +6,20 @@
 
 本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.2.5-4) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
+[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.2.6-1) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 当前版本：[2.2.5-4](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.2.5-4)。已同步官方 2.2.5 版本并修复若干 bug。
+> 当前版本：[2.2.6-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.2.6-1)。同步官方 2.2.6，更新检查改为跟随 FN-OPENCODE 项目发布。
 
 | 安装包 | 版本 | 下载 |
 | --- | --- | --- |
-| x86_64 | 2.2.5-4 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.5-4/OpenCode-fnOS-2.2.5-4-x86_64.fpk) |
-| ARM64 | 2.2.5-4 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.5-4/OpenCode-fnOS-2.2.5-4-arm64.fpk) |
+| x86_64 | 2.2.6-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.6-1/OpenCode-fnOS-2.2.6-1-x86_64.fpk) |
+| ARM64 | 2.2.6-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.6-1/OpenCode-fnOS-2.2.6-1-arm64.fpk) |
 
 ![OpenCode 在飞牛 fnOS 中的实际运行界面](assets/opencode-fnos-screenshot.png)
 
 ## 功能
 
-以下为 2.2.5 系列的使用说明。
+以下说明对应 `2.2.6-1`。
 
 - **飞牛桌面集成**：桌面窗口、深浅色标题栏与紧凑布局。
 - **AI 编程**：使用 OpenCode 的会话、项目、文件操作和终端功能。
@@ -77,30 +77,29 @@
 
 旧版飞牛扩展页由官方原生页面接替。技能文件安装后可重启应用，再刷新列表。
 
-## 程序更新（1.19.4-1 起）
+## FN-OPENCODE 更新
 
-安装本次飞牛新版后，在飞牛桌面打开 OpenCode，进入 **设置 → 程序更新**，点击“检查官方更新”，选择版本后更新。程序会下载对应架构的官方文件、校验文件、在临时实例检查界面与接口，再备份配置和会话并切换版本。启动失败会自动恢复旧版及其数据。
+从 `2.2.6-1` 起，应用内更新只跟随本项目的 [FN-OPENCODE 发布版本](https://github.com/HANSHOJIN/FN-OPENCODE/releases)。内核和飞牛适配随完整 FPK 一起更新。
 
-也可以在聊天中让 OpenCode 检查或更新程序，它可调用内置命令：
+1. 打开 **设置 → 程序更新**，点击“检查 FN-OPENCODE 更新”。
+2. 有新版本时，下载页面提供的对应架构 FPK。
+3. 回到飞牛应用中心，选择“手动安装”并选中下载的文件。
+
+也可在聊天中让 OpenCode 查询：
 
 ```bash
 fnos-opencode-update check
-fnos-opencode-update apply 2.2.5
 fnos-opencode-update status
-fnos-opencode-update rollback
 ```
 
-更新命令先提交后台任务，状态显示 `complete` 才代表完成。更新与回退会中断当前生成和终端，之后请重新打开或刷新窗口。回退会恢复更新前的配置与会话数据，更新后新增的会话变更不在恢复后的实例中；备份会保留，暂不自动清理。
-
-如果官方新版改变了界面或接口，检查会拒绝更新，当前版本继续运行。这时请等待本项目发布新版 [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases)，再到飞牛应用中心升级。安装新版 FPK 后，以 FPK 自带的官方程序为准。ARM64 的程序更新与回退仍待实机验证。
-
+查询与下载安装包不会自动安装。原来的官方内核独立更新、`apply` 和 `rollback` 已停用，请通过飞牛应用中心更新完整安装包。历史更新备份保留，不会继续执行旧的内核更新任务。
 
 ## 数据与升级
 
 项目文件位于 `OpenCode/projects` 共享目录；应用配置、授权信息和会话数据由 fnOS 应用数据目录保存。
 
 - 升级前建议备份重要项目和应用数据。
-- OpenCode 可随 FPK 更新。1.19.4-1 起也可通过飞牛设置里的“程序更新”独立更新官方程序；官方原生自更新仍禁用，避免绕过兼容检查。
+- 通过完整 FPK 更新 FN-OPENCODE；应用内可检查和下载本项目的新版本，官方内核独立更新已取消。
 - 卸载时可选择加密导出私有数据，解密密码为卸载时使用的 Web 密码，请妥善保管。
 - 旧导出文件始终使用导出时的旧密码解密；修改 Web 密码不会更改已有备份的加密密码。
 - 升级恢复点不会自动删除，确认不再需要后可手动清理，避免长期占用空间。
@@ -141,7 +140,7 @@ python scripts/build.py
 也可以指定上游版本、架构和适配修订号：
 
 ```bash
-python scripts/build.py 2.2.5 x86_64 --revision 4
+python scripts/build.py 2.2.6 x86_64 --revision 1
 ```
 
 安装包检查需要 Bash；Windows 可使用 Git for Windows 提供的 Bash：

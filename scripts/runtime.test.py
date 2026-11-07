@@ -1,160 +1,83 @@
-"""Transactional tests with fake processes; Linux execution is verified separately."""
+"""Complete-package release selection and retirement of live kernel updates."""
+import copy
 import importlib.util
-import io
 import json
 import os
 from pathlib import Path
-import sqlite3
 import sys
-import tarfile
 import tempfile
 import unittest
-from contextlib import closing
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'opencode-fnos/app/lib'))
-spec = importlib.util.spec_from_file_location('runtime', ROOT / 'opencode-fnos/app/lib/runtime.py')
-runtime = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(runtime)
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'opencode-fnos/app/lib'))
+import package_updates as updates
+import runtime
 
+def release(version, arch='x86_64'):
+    name=f'OpenCode-fnOS-{version}-{arch}.fpk'
+    return {'tag_name':'v'+version,'draft':False,'prerelease':False,'body':'release notes',
+            'assets':[{'name':name,'state':'uploaded','size':123456,'digest':'sha256:'+'a'*64,
+                       'browser_download_url':updates.RELEASES+f'/download/v{version}/{name}'}]}
 
-class RuntimeTests(unittest.TestCase):
-    def test_preflight_diagnostics_are_versioned_bounded_and_visible(self):
-        log = Path(self.temp.name) / 'preflight.log'
-        log.write_text('old unstructured server error\nFNOS_PREFLIGHT ' + json.dumps({
-            'version': '2.2.2', 'stage': 'old-failure', 'message': 'stale',
-        }) + '\nFNOS_PREFLIGHT ' + json.dumps({
-            'version': '2.2.5', 'stage': 'patchSettings', 'role': 'settings', 'path': '/_assets/settings.js',
-            'anchor': 'navigation', 'matches': 2, 'expectedMatches': 1, 'message': 'x' * 2000, 'unapproved': 'do not expose',
-        }), encoding='utf8')
-        details = runtime.preflight_details(log, '2.2.5')
-        self.assertEqual(details['matches'], 2)
-        self.assertEqual(len(details['message']), 1600)
-        self.assertNotIn('unapproved', details)
-        self.r.progress('failed', str(runtime.PreflightError(details)), 'job', details)
-        self.assertEqual(self.r.status()['diagnostics'], details)
-        self.assertEqual(self.r.status()['stage'], 'patchSettings')
-        self.assertEqual(runtime.preflight_details(log, '2.2.6')['stage'], 'startup')
+class PackageUpdateTests(unittest.TestCase):
+    def test_own_fpk_revisions_are_sorted_numerically(self):
+        data=[release('2.2.6-2'),release('2.2.5-12'),release('2.2.6-10'),release('2.2.6-1')]
+        self.assertEqual([r['version'] for r in updates.select_releases(data,'x86_64')],
+                         ['2.2.6-10','2.2.6-2','2.2.6-1','2.2.5-12'])
+        self.assertIn('HANSHOJIN/FN-OPENCODE',updates.API)
 
-    def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(dir=ROOT / '.build')
-        self.addCleanup(self.temp.cleanup)
-        base = Path(self.temp.name)
-        env = {k: str(base / v) for k, v in {'TRIM_APPDEST':'app','TRIM_PKGVAR':'var','TRIM_PKGETC':'etc','TRIM_PKGHOME':'home','FNOS_WORKSPACE':'projects'}.items()}
-        env['TRIM_APPVER'] = 'test-package'
-        for value in env.values():
-            if value != 'test-package':
-                Path(value).mkdir(parents=True)
-        etc = Path(env['TRIM_PKGETC'])
-        for key, value in {'username':'test','password':'a-test-password','port':'4096'}.items():
-            (etc / ('web.' + key)).write_text(value + '\n', encoding='utf-8')
-        app = Path(env['TRIM_APPDEST'])
-        (app / 'gateway').mkdir()
-        (app / 'gateway/compatibility.json').write_text(json.dumps({'server':'1.19.4'}))
-        self.env = patch.dict(os.environ, env)
-        self.env.start()
-        self.addCleanup(self.env.stop)
-        self.r = runtime.Runtime()
-        for name, path in self.r.roots.items():
-            path.mkdir(exist_ok=True)
-            (path / 'value').write_text('before-' + name)
+    def test_wrong_repository_architecture_incomplete_and_preview_assets_are_rejected(self):
+        candidates=[]
+        for modify in [lambda r:r.update(draft=True),lambda r:r.update(prerelease=True),
+                       lambda r:r.update(tag_name='v2.2.6-beta'),lambda r:r['assets'][0].update(state='new'),
+                       lambda r:r['assets'][0].update(digest=None),lambda r:r['assets'][0].update(size=0),
+                       lambda r:r['assets'][0].update(browser_download_url='https://github.com/anomalyco/opencode/releases/download/v2.2.6/opencode-linux-x64-baseline.tar.gz'),
+                       lambda r:r['assets'][0].update(name='opencode-linux-x64-baseline.tar.gz')]:
+            item=release('2.2.6-1');modify(item);candidates.append(item)
+        candidates.extend([release('2.2.6-1','arm64'),None,{},release('2.2.7-1','x86_64')])
+        selected=updates.select_releases(candidates,'x86_64')
+        self.assertEqual([r['version'] for r in selected],['2.2.7-1'])
 
-    def test_request_validation_and_exclusion(self):
-        for version in ('../../etc', 'v1.19.4', '1.2.3; echo secret', '1.2.3\n', '1.2.3-beta'):
-            with self.assertRaises(ValueError):
-                self.r.enqueue('apply', version)
-        result = self.r.enqueue('apply', '1.19.5')
-        self.assertEqual(len(result['job']), 32)
-        with self.assertRaises(ValueError):
-            self.r.enqueue('apply', '1.19.6')
-        self.assertEqual(runtime.read(self.r.root / 'request.json')['version'], '1.19.5')
+    def test_package_checker_does_not_offer_a_downgrade(self):
+        status={'package':'2.2.6-1','architecture':'x86_64'}
+        for available, expected in [('2.2.5-4',False),('2.2.6-1',False),('2.2.6-2',True)]:
+            with patch.object(updates,'status',return_value=status),patch.object(updates,'fetch_releases',return_value=[release(available)]):
+                self.assertEqual(updates.check()['hasUpdate'],expected)
 
-    def test_download_origin_and_architecture_rejection(self):
-        for value in ('http://github.com/a', 'https://github.com.evil/a', 'https://user:pass@github.com/a', 'https://github.com:123/a'):
-            with self.assertRaises(ValueError):
-                runtime.safe_url(value)
-        self.assertEqual(runtime.safe_url('https://release-assets.githubusercontent.com/a'), 'https://release-assets.githubusercontent.com/a')
-        with patch.object(runtime.platform, 'machine', return_value='aarch64'):
-            self.assertEqual(runtime.architecture()[2], 183)
+    def test_arm64_selects_its_own_complete_package(self):
+        with patch.object(updates.platform,'machine',return_value='aarch64'):
+            arch=updates.architecture()
+        found=updates.select_releases([release('2.2.6-1'),release('2.2.6-1','arm64')],arch)
+        self.assertEqual(len(found),1);self.assertTrue(found[0]['filename'].endswith('-arm64.fpk'))
 
-    def test_archive_symlinks_traversal_and_wrong_elf_are_rejected(self):
-        for index, name in enumerate(('../opencode', 'opencode', './opencode')):
-            archive = self.r.root / f'test-{index}.tgz'
-            with tarfile.open(archive, 'w:gz') as tar:
-                item = tarfile.TarInfo(name)
-                item.size = 20
-                tar.addfile(item, io.BytesIO(b'X' * 20))
-            with self.assertRaises(ValueError):
-                runtime.unpack(archive, self.r.root / f'out-{index}', 62)
+    def test_redirects_cannot_change_repository_or_send_requests_elsewhere(self):
+        for url in ['http://api.github.com/repos/HANSHOJIN/FN-OPENCODE/releases',
+                    'https://api.github.com/repos/anomalyco/opencode/releases',
+                    'https://evil.example/repos/HANSHOJIN/FN-OPENCODE/releases']:
+            with self.assertRaises(ValueError):updates.Redirect().redirect_request(None,None,302,'',{},url)
 
-    def test_incompatible_candidate_never_stops_or_mutates_current_instance(self):
-        with patch.object(self.r, 'install', side_effect=ValueError('incompatible')), patch.object(self.r, 'stop') as stop, patch.object(self.r, 'start') as start:
-            self.r.transact({'job':'a'*32, 'action':'apply', 'version':'1.19.5'})
-            stop.assert_not_called()
-            start.assert_not_called()
-        self.assertEqual((self.r.etc / 'value').read_text(), 'before-etc')
-        self.assertEqual(self.r.status()['phase'], 'failed')
-        self.assertFalse((self.r.root / 'transaction.json').exists())
+    def test_retired_apply_and_rollback_do_not_construct_runtime_or_queue_jobs(self):
+        for args in [['apply','2.2.7'],['rollback']]:
+            with patch.object(sys,'argv',['runtime.py',*args]),patch.object(runtime,'Runtime') as manager:
+                with self.assertRaisesRegex(ValueError,'已取消'):runtime.main()
+                manager.assert_not_called()
 
-    def test_failure_after_switch_restores_program_and_all_data(self):
-        target = {'package':'test-package','version':'1.19.5','sha256':'unused'}
-        starts = []
-        def start():
-            starts.append(self.r.active())
-            if len(starts) == 1:
-                for name, path in self.r.roots.items():
-                    (path / 'value').write_text('migrated')
-                raise ValueError('health failed after data migration')
-        with patch.object(self.r, 'install', return_value=target), patch.object(self.r, 'stop'), patch.object(self.r, 'start', side_effect=start):
-            self.r.transact({'job':'b'*32,'action':'apply','version':'1.19.5'})
-        self.assertEqual(starts, [target, {}])
-        for name, path in self.r.roots.items():
-            self.assertEqual((path / 'value').read_text(), 'before-' + name)
-        self.assertEqual(self.r.status()['phase'], 'failed')
-        self.assertFalse((self.r.root / 'transaction.json').exists())
+    def test_old_active_binary_and_pending_transactions_never_change_bundled_runtime(self):
+        with tempfile.TemporaryDirectory(dir=ROOT/'.build') as temp:
+            folder=Path(temp)
+            env={k:str(folder/v) for k,v in {'TRIM_APPDEST':'app','TRIM_PKGVAR':'var','TRIM_PKGETC':'etc','TRIM_PKGHOME':'home'}.items()}
+            for value in env.values():Path(value).mkdir()
+            etc=Path(env['TRIM_PKGETC'])
+            for key,value in {'port':'4096','username':'opencode','password':'test-only-password'}.items():(etc/('web.'+key)).write_text(value+'\n')
+            legacy=Path(env['TRIM_PKGVAR'])/'runtime';legacy.mkdir()
+            for name in ['active','request','transaction','status']:(legacy/(name+'.json')).write_text('{"action":"apply","version":"9.9.9","backup":"old"}')
+            before={p.name:p.read_bytes() for p in legacy.iterdir()}
+            with patch.dict(os.environ,env):manager=runtime.Runtime()
+            self.assertEqual(manager.binary(),Path(env['TRIM_APPDEST'])/'bin/opencode')
+            manager.children={'opencode':Mock(poll=lambda:1)}
+            with patch.object(manager,'start'):
+                with self.assertRaisesRegex(RuntimeError,'backend exited'):manager.serve()
+            self.assertEqual({p.name:p.read_bytes() for p in legacy.iterdir()},before)
 
-    def test_manual_rollback_restores_snapshot_and_keeps_recovery_copy(self):
-        first = 'c'*32
-        self.r.snapshot(first)
-        target = {'package':'test-package','version':'1.19.5','sha256':'unused'}
-        runtime.atomic(self.r.root / 'active.json', target)
-        runtime.atomic(self.r.root / 'rollback.json', {'package':'test-package','backup':first})
-        for path in self.r.roots.values():
-            (path / 'value').write_text('after-update')
-        with patch.object(self.r, 'preflight'), patch.object(self.r, 'stop'), patch.object(self.r, 'start'):
-            self.r.transact({'job':'d'*32,'action':'rollback','version':None})
-        self.assertEqual(self.r.active(), {})
-        self.assertEqual((self.r.etc / 'value').read_text(), 'before-etc')
-        self.assertEqual((self.r.root / 'backups' / ('d'*32) / 'etc/value').read_text(), 'after-update')
-        self.assertEqual(self.r.status()['phase'], 'complete')
-
-    def test_restart_recovers_interrupted_switch_before_launching(self):
-        job = 'e'*32
-        self.r.snapshot(job)
-        runtime.atomic(self.r.root / 'transaction.json', {'backup':job})
-        (self.r.etc / 'value').write_text('partially-migrated')
-        with patch.object(self.r, 'start', side_effect=RuntimeError('stop test before service loop')):
-            with self.assertRaises(RuntimeError):
-                self.r.serve()
-        self.assertEqual((self.r.etc / 'value').read_text(), 'before-etc')
-        self.assertFalse((self.r.root / 'transaction.json').exists())
-
-    def test_new_fpk_ignores_previous_runtime_selection(self):
-        runtime.atomic(self.r.root / 'active.json', {'package':'older-fpk','version':'1.19.3','sha256':'unused'})
-        self.assertEqual(self.r.binary(), self.r.app / 'bin/opencode')
-
-    def test_online_sqlite_snapshot_includes_uncheckpointed_wal(self):
-        dbfile = self.r.var / 'data/test.db'
-        with closing(sqlite3.connect(dbfile)) as db:
-            db.execute('pragma journal_mode=wal')
-            db.execute('create table test(value text)')
-            db.execute('insert into test values (?)', ('latest',))
-            db.commit()
-            snapshot = self.r.snapshot('f'*32, live=True)
-        with closing(sqlite3.connect(snapshot / 'data/test.db')) as db:
-            self.assertEqual(db.execute('select value from test').fetchone()[0], 'latest')
-
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)
+if __name__=='__main__':unittest.main(verbosity=2)

@@ -1,12 +1,6 @@
 #!/bin/bash
 source "$TRIM_APPDEST/lib/common.sh"
 prepare
-if [[ -f "$TRIM_PKGVAR/runtime/status.json" ]]; then
- python3 - "$TRIM_PKGVAR/runtime/status.json" <<'PY' || fail '正在执行独立程序更新，请等待完成后再升级 FPK。'
-import json,sys
-sys.exit(0 if json.load(open(sys.argv[1]))['phase'] in ('idle','complete','failed') else 1)
-PY
-fi
 bash "$(dirname "$0")/main" stop
 backup="$TRIM_PKGVAR/backups/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$backup"
