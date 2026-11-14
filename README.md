@@ -6,22 +6,27 @@
 
 本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.2.6-1) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
+[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.3.0-1) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 当前版本：[2.2.6-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.2.6-1)。同步官方 2.2.6，更新检查改为跟随 FN-OPENCODE 项目发布。
+> 当前版本：[2.3.0-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.3.0-1)。同步官方 2.3.0，新增标题栏独立网页入口。
 
 | 安装包 | 版本 | 下载 |
 | --- | --- | --- |
-| x86_64 | 2.2.6-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.6-1/OpenCode-fnOS-2.2.6-1-x86_64.fpk) |
-| ARM64 | 2.2.6-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.2.6-1/OpenCode-fnOS-2.2.6-1-arm64.fpk) |
+| x86_64 | 2.3.0-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.3.0-1/OpenCode-fnOS-2.3.0-1-x86_64.fpk) |
+| ARM64 | 2.3.0-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.3.0-1/OpenCode-fnOS-2.3.0-1-arm64.fpk) |
 
 ![OpenCode 在飞牛 fnOS 中的运行界面（项目名称已替换为示例）](assets/opencode-fnos-screenshot-redacted.png)
 
+## 本次更新
+
+- 已同步官方 OpenCode `2.3.0`。
+- 新增标题栏「独立网页」入口，使用当前主机地址及实际配置端口。
+
 ## 功能
 
-以下说明对应 `2.2.6-1`。
+以下说明对应 `2.3.0-1`。
 
-- **飞牛桌面集成**：桌面窗口、深浅色标题栏与紧凑布局。
+- **飞牛桌面集成**：桌面窗口、深浅色标题栏与紧凑布局，可从标题栏打开独立网页。
 - **AI 编程**：使用 OpenCode 的会话、项目、文件操作和终端功能。
 - **供应商连接**：使用官方 API Key 和 OpenCode Console / Go 账号授权。
 - **飞牛设置菜单**：保留偏好设置、外观、通知、快捷键、供应商、模型、扩展、程序更新及关于页面。
@@ -140,7 +145,7 @@ python scripts/build.py
 也可以指定上游版本、架构和适配修订号：
 
 ```bash
-python scripts/build.py 2.2.6 x86_64 --revision 1
+python scripts/build.py 2.3.0 x86_64 --revision 1
 ```
 
 安装包检查需要 Bash；Windows 可使用 Git for Windows 提供的 Bash：

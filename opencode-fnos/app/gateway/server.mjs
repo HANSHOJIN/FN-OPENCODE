@@ -87,7 +87,7 @@ export function createGateway({ port, username, password, version, bootstrap, wo
           retiredProjectIDs = emptyUpgradeProjectIDs(projects, sessions, workspace, emptyDefault)
         }
       } catch { /* The native client will still load projects when the API is ready. */ }
-      return {prefix:PREFIX,package:version,server:state.version,web:webVersion,projectHistory,retiredProjectIDs,displayVersion:`${version} (Server ${state.version} / Web ${webVersion})`}
+      return {prefix:PREFIX,package:version,server:state.version,web:webVersion,port,projectHistory,retiredProjectIDs,displayVersion:`${version} (Server ${state.version} / Web ${webVersion})`}
     })().finally(() => { metadataRequest = undefined })
     return metadataRequest
   }

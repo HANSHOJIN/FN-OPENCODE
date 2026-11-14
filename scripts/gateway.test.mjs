@@ -86,14 +86,17 @@ test('native connection accepts a delayed real handshake, rejects silence and cl
   const begin=code.search(/var [\w$]+=30e3,[\w$]+=1e3,[\w$]+=50/)
   const native = code.slice(begin,code.indexOf('var ',begin+4))
   const factory=code.match(/createClientConnection:\(\)=>([\w$]+)/)[1]
+  const store=native.match(/\]=([\w$]+)\(\{status:`connecting`,attempt:0\}\)/)[1]
+  const batch=native.match(/([\w$]+)\(\(\)=>[\w$]+\.forEach\([\w$]+\.onEvent\)\)/)[1]
+  const cleanup=native.match(/,([\w$]+)\(\(\)=>\{[\w$]+\(\),[\w$]+\.abort\(\),[\w$]+&&clearTimeout/)[1]
   assert.ok(native.includes('Event stream did not start with server.connected'))
   const setup = () => {
     let time = 0, sequence = 0, deliver, signal
     const timers = new Map(), cleanups = [], notices = []
     const context = {
       AbortController, Error, Date: {now: () => time},
-      l: value => [value, next => Object.assign(value, next)],
-      r: callback => callback(), t: callback => cleanups.push(callback),
+      [store]: value => [value, next => Object.assign(value, next)],
+      [batch]: callback => callback(), [cleanup]: callback => cleanups.push(callback),
       window: {__FNOS_OPENCODE__: {connectionStatus: (...args) => notices.push(args)}},
       setTimeout: (callback, delay) => {const id = ++sequence; timers.set(id, {at: time + delay, callback}); return id},
       clearTimeout: id => timers.delete(id),

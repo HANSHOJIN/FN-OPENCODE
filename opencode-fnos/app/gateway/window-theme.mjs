@@ -1,4 +1,17 @@
 // Optional, scoped adapter for the fnOS iframe host. No system files change.
+export function standaloneURL(current, port) {
+  try {
+    const url = new URL(current)
+    const configured = Number(port)
+    if (!['http:', 'https:'].includes(url.protocol) || !Number.isInteger(configured) || configured < 1024 || configured > 65535) return null
+    url.protocol = 'http:'
+    url.port = String(configured)
+    url.pathname = '/'
+    url.search = ''; url.hash = ''; url.username = ''; url.password = ''
+    return url.href
+  } catch { return null }
+}
+
 export function applyWindowTheme(child = window) {
   let frame, host, doc
   try {
@@ -7,6 +20,7 @@ export function applyWindowTheme(child = window) {
     doc = host?.ownerDocument
   } catch { return false }
   if (!host || !doc || !host.querySelector('.trim-ui__app-layout--header')) return false
+  const header = host.querySelector('.trim-ui__app-layout--header')
   let body = frame
   while (body.parentElement && body.parentElement !== host) body = body.parentElement
   if (body.parentElement !== host) return false
@@ -41,9 +55,33 @@ export function applyWindowTheme(child = window) {
       [${key}] .trim-ui__app-layout--header-title,
       [${key}] .trim-ui__app-layout--header [class*="app-layout-header-"] { color:var(--fnos-oc-text)!important; }
       [${key}] .trim-ui__app-layout--header-title { font-size:12px!important; }
+      [${key}] [data-fnos-opencode-standalone] {
+        display:inline-flex;align-items:center;align-self:center;height:28px;
+        padding:0 8px;margin-right:4px;white-space:nowrap;flex-shrink:0;
+        color:var(--fnos-oc-text);font:12px/1.2 system-ui,sans-serif;text-decoration:none;border-radius:4px;
+      }
+      [${key}] [data-fnos-opencode-standalone]:hover { background:var(--fnos-oc-hover); }
       [${key}] .app-layout-header-minimize:hover,
       [${key}] .app-layout-header-maximize:hover { background:var(--fnos-oc-hover)!important; }
     `
+  const directURL = standaloneURL(child.location.href, child.__FNOS_OPENCODE__?.port)
+  let standalone
+  if (directURL) {
+    standalone = header.querySelector('[data-fnos-opencode-standalone]')
+    if (!standalone) {
+      standalone = doc.createElement('a')
+      standalone.setAttribute('data-fnos-opencode-standalone', '')
+      standalone.textContent = '独立网页 ↗'
+      standalone.target = '_blank'; standalone.rel = 'noopener noreferrer'
+      for (const type of ['pointerdown','mousedown','touchstart','click','dblclick']) standalone.addEventListener(type, event => event.stopPropagation())
+      let controls = header.querySelector('.app-layout-header-minimize')
+      while (controls?.parentElement && controls.parentElement !== header) controls = controls.parentElement
+      if (controls && !controls.contains(header.querySelector('.trim-ui__app-layout--header-title'))) controls.before(standalone)
+      else header.append(standalone)
+    }
+    standalone.href = directURL
+    standalone.title = '在独立网页打开 OpenCode（端口 ' + child.__FNOS_OPENCODE__.port + '）'
+  }
   const root = child.document.documentElement
   const media = child.matchMedia('(prefers-color-scheme: dark)')
   const sync = () => {
@@ -60,6 +98,7 @@ export function applyWindowTheme(child = window) {
     host.removeAttribute(key)
     body.removeAttribute('data-fnos-opencode-body')
     frame.removeAttribute('data-fnos-opencode-frame')
+    standalone?.remove()
   }, { once: true })
   return true
 }
