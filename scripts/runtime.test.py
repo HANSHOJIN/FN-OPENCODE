@@ -41,7 +41,7 @@ class PackageUpdateTests(unittest.TestCase):
 
     def test_package_checker_does_not_offer_a_downgrade(self):
         status={'package':'2.2.6-1','architecture':'x86_64'}
-        for available, expected in [('2.2.5-4',False),('2.2.6-1',False),('2.2.6-2',True),('2.3.0-1',True)]:
+        for available, expected in [('2.2.5-4',False),('2.2.6-1',False),('2.2.6-2',True),('2.3.0-1',True),('2.3.2-1',True)]:
             with patch.object(updates,'status',return_value=status),patch.object(updates,'fetch_releases',return_value=[release(available)]):
                 self.assertEqual(updates.check()['hasUpdate'],expected)
 
