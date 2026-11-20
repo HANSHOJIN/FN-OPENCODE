@@ -64,7 +64,9 @@ case ${1:-} in
   stop_server; fail 'OpenCode 健康检查超时，请查看应用日志。'
   ;;
  stop) stop_server ;;
- status) alive || exit 3; load_settings; health || exit 3 ;;
- _running) alive || exit 3 ;;
+ status|_running)
+  # App Center tracks the owned process here. HTTP readiness is checked on start.
+  alive || exit 3
+  ;;
  *) fail '支持的操作：start / stop / status' ;;
 esac

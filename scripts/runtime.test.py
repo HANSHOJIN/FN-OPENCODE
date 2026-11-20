@@ -4,6 +4,8 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -79,5 +81,50 @@ class PackageUpdateTests(unittest.TestCase):
             with patch.object(manager,'start'):
                 with self.assertRaisesRegex(RuntimeError,'backend exited'):manager.serve()
             self.assertEqual({p.name:p.read_bytes() for p in legacy.iterdir()},before)
+
+
+@unittest.skipUnless(sys.platform.startswith('linux'), 'fnOS lifecycle uses Linux /proc')
+class AppCenterStatusTests(unittest.TestCase):
+    def test_live_process_stays_running_during_health_failure(self):
+        source = ROOT / 'opencode-fnos'
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            app, var, etc, home = (root / name for name in ('app', 'var', 'etc', 'home'))
+            for path in (app / 'bin', app / 'lib', var / 'run', etc, home):
+                path.mkdir(parents=True)
+            binary = app / 'bin/opencode'
+            binary.symlink_to(shutil.which('sleep'))
+            shutil.copyfile(source / 'app/lib/common.sh', app / 'lib/common.sh')
+            (app / 'lib/health.py').write_text('raise SystemExit(1)\n')
+            for name, value in {'port': '4096', 'username': 'opencode', 'password': 'test-only-password'}.items():
+                (etc / ('web.' + name)).write_text(value + '\n')
+
+            env = {**os.environ, 'TRIM_APPDEST': str(app), 'TRIM_PKGVAR': str(var),
+                   'TRIM_PKGETC': str(etc), 'TRIM_PKGHOME': str(home),
+                   'TRIM_PKGTMP': str(var / 'tmp'), 'TRIM_DATA_SHARE_PATHS': str(home)}
+            env.pop('TRIM_TEMP_LOGFILE', None)
+
+            def hook(action):
+                return subprocess.run(['bash', source / 'cmd/main', action], env=env,
+                                      capture_output=True, text=True, timeout=10)
+
+            with subprocess.Popen([binary, '60'], start_new_session=True) as process:
+                try:
+                    fields = Path(f'/proc/{process.pid}/stat').read_text().rsplit(') ', 1)[1].split()
+                    pidfile = var / 'run/server.pid'
+                    pidfile.write_text(f'{process.pid} {fields[19]}\n')
+                    self.assertEqual(hook('status').returncode, 0)
+                    self.assertEqual(hook('_running').returncode, 0)
+                    start = hook('start')
+                    self.assertEqual(start.returncode, 1)
+                    self.assertIn('健康检查失败', start.stderr)
+                    pidfile.write_text(f'{process.pid} {int(fields[19]) + 1}\n')
+                    self.assertEqual(hook('status').returncode, 3)
+                    pidfile.write_text(f'{process.pid} {fields[19]}\n')
+                finally:
+                    process.terminate()
+                    process.wait(timeout=5)
+            self.assertEqual(hook('status').returncode, 3)
+
 
 if __name__=='__main__':unittest.main(verbosity=2)

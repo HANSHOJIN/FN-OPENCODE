@@ -6,24 +6,24 @@
 
 本项目将官方 OpenCode Web 服务适配为 fnOS 原生 FPK 应用，可从飞牛桌面直接打开，无需 Docker。由 **HANSHOJIN** 维护，与 OpenCode 官方团队无隶属关系。
 
-[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.3.2-1) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
+[直接下载 FPK 安装包](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.3.2-2) · [版本记录](https://github.com/HANSHOJIN/FN-OPENCODE/releases) · [问题反馈](https://github.com/HANSHOJIN/FN-OPENCODE/issues) · [OpenCode 上游](https://github.com/anomalyco/opencode)
 
-> 当前版本：[2.3.2-1](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.3.2-1)。同步官方 2.3.2。
+> 当前版本：[2.3.2-2](https://github.com/HANSHOJIN/FN-OPENCODE/releases/tag/v2.3.2-2)，内核为官方 OpenCode 2.3.2。
 
 | 安装包 | 版本 | 下载 |
 | --- | --- | --- |
-| x86_64 | 2.3.2-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.3.2-1/OpenCode-fnOS-2.3.2-1-x86_64.fpk) |
-| ARM64 | 2.3.2-1 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.3.2-1/OpenCode-fnOS-2.3.2-1-arm64.fpk) |
+| x86_64 | 2.3.2-2 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.3.2-2/OpenCode-fnOS-2.3.2-2-x86_64.fpk) |
+| ARM64 | 2.3.2-2 | [FPK](https://github.com/HANSHOJIN/FN-OPENCODE/releases/download/v2.3.2-2/OpenCode-fnOS-2.3.2-2-arm64.fpk) |
 
 ![OpenCode 在飞牛 fnOS 中的运行界面（项目名称已替换为示例）](assets/opencode-fnos-screenshot-redacted.png)
 
 ## 本次更新
 
-- 已同步官方 OpenCode `2.3.2`。
+- 修复短时健康检查失败时，飞牛应用中心可能将仍在运行的 OpenCode 误判为异常退出的问题。启动时仍会检查服务是否就绪。
 
 ## 功能
 
-以下说明对应 `2.3.2-1`。
+以下说明对应 `2.3.2-2`。
 
 - **飞牛桌面集成**：桌面窗口、深浅色标题栏与紧凑布局，可从标题栏打开独立网页。
 - **AI 编程**：使用 OpenCode 的会话、项目、文件操作和终端功能。
@@ -144,7 +144,7 @@ python scripts/build.py
 也可以指定上游版本、架构和适配修订号：
 
 ```bash
-python scripts/build.py 2.3.2 x86_64 --revision 1
+python scripts/build.py 2.3.2 x86_64 --revision 2
 ```
 
 安装包检查需要 Bash；Windows 可使用 Git for Windows 提供的 Bash：
